@@ -1,0 +1,13 @@
+# Terraform state and configuration files
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+*.tfplan
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
