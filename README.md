@@ -16,9 +16,9 @@ This infrastructure repository focuses solely on platform provisioning and provi
 ```
 kubernetes/
 ├── environments/
-│   ├── dev/           # Development environment (2 nodes, B2s VMs)
-│   ├── stage/         # Staging environment (3 nodes, B2ms VMs)
-│   └── prod/          # Production environment (5 nodes, D2s_v3 VMs)
+│   ├── dev/           # Development environment
+│   ├── stage/         # Staging environment
+│   └── prod/          # Production environment
 ```
 
 Each environment contains:
