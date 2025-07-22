@@ -19,6 +19,10 @@ terraform {
       source  = "hashicorp/random"
       version = "~>3.0"
     }
+    tls = {
+      source  = "hashicorp/tls"
+      version = "~>4.0"
+    }
   }
 }
 
@@ -102,6 +106,23 @@ resource "kubernetes_namespace" "argocd" {
   }
 }
 
+# Generate SSH key for ArgoCD repository access
+resource "tls_private_key" "argocd_repo" {
+  algorithm = "ED25519"
+}
+
+# Store private key in Kubernetes Secret
+resource "kubernetes_secret" "argocd_repo_ssh" {
+  metadata {
+    name      = var.argocd_repo_ssh_secret_name
+    namespace = kubernetes_namespace.argocd.metadata[0].name
+  }
+
+  data = {
+    "ssh-privatekey" = tls_private_key.argocd_repo.private_key_pem
+  }
+}
+
 # Install ArgoCD via Helm
 resource "helm_release" "argocd" {
   name       = "argocd"
@@ -135,5 +156,14 @@ resource "kubernetes_config_map" "environment_config" {
   }
 }
 
-# NOTE: NGINX Ingress, cert-manager, secrets, and DNS management 
-# will be managed by ArgoCD applications in the gitops repo
+# Output the public key for use as a deploy key in your private repo
+output "argocd_repo_public_key" {
+  description = "Public SSH key for ArgoCD to access private config repo. Add this as a deploy key."
+  value       = tls_private_key.argocd_repo.public_key_openssh
+}
+
+variable "argocd_repo_ssh_secret_name" {
+  description = "Name of the Kubernetes Secret to store ArgoCD repo SSH private key."
+  type        = string
+  default     = "argocd-repo-ssh"
+}
