@@ -67,9 +67,10 @@ resource "azurerm_kubernetes_cluster" "main" {
   dns_prefix          = local.dns_prefix
   
   default_node_pool {
-    name       = "default"
-    node_count = var.node_count
-    vm_size    = var.vm_size
+    name                   = "default"
+    node_count            = var.node_count
+    vm_size               = var.vm_size
+    temporary_name_for_rotation = "temp"
   }
 
   identity {
