@@ -1,10 +1,10 @@
-# Production Environment Configuration
-# Copy this to terraform.tfvars and customize
-
 # Environment
 environment = "prod"
 
 # AKS
-resource_group_location = "eastus"
-node_count = 5
-vm_size = "Standard_D2s_v3"
+resource_group_location = "northcentralus"
+node_count = 2
+vm_size = "Standard_B2s"
+
+# ArgoCD Configuration Source
+git_repo_url = "https://github.com/unixfg/kubernetes-config.git"

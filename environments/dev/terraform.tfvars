@@ -1,6 +1,3 @@
-# Dev Environment Configuration
-# Copy this to terraform.tfvars and customize
-
 # Environment
 environment = "dev"
 
