@@ -38,3 +38,9 @@ variable "git_branch" {
   type        = string
   default     = var.environment
 }
+
+variable "argocd_repo_ssh_secret_name" {
+  description = "Name of the Kubernetes Secret to store ArgoCD repo SSH private key."
+  type        = string
+  default     = "argocd-repo-ssh"
+}
