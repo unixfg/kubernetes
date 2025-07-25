@@ -32,3 +32,15 @@ variable "git_repo_url" {
   type        = string
   default     = "https://github.com/unixfg/kubernetes-config.git"
 }
+
+variable "use_ssh_for_git" {
+  description = "Whether to use SSH for git repository access (required for private repos)"
+  type        = bool
+  default     = true
+}
+
+variable "argocd_repo_ssh_secret_name" {
+  description = "Name of the Kubernetes Secret to store ArgoCD repo SSH private key."
+  type        = string
+  default     = "argocd-repo-ssh"
+}

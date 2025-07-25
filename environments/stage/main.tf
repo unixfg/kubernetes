@@ -117,10 +117,15 @@ resource "kubernetes_secret" "argocd_repo_ssh" {
   metadata {
     name      = var.argocd_repo_ssh_secret_name
     namespace = kubernetes_namespace.argocd.metadata[0].name
+    labels = {
+      "argocd.argoproj.io/secret-type" = "repository"
+    }
   }
 
   data = {
-    "ssh-privatekey" = tls_private_key.argocd_repo.private_key_pem
+    "sshPrivateKey" = tls_private_key.argocd_repo.private_key_openssh
+    "url"           = var.use_ssh_for_git ? replace(var.git_repo_url, "https://github.com/", "git@github.com:") : var.git_repo_url
+    "type"          = "git"
   }
 }
 
@@ -157,14 +162,57 @@ resource "kubernetes_config_map" "environment_config" {
   }
 }
 
-# Output the public key for use as a deploy key in your private repo
-output "argocd_repo_public_key" {
-  description = "Public SSH key for ArgoCD to access private config repo. Add this as a deploy key."
-  value       = tls_private_key.argocd_repo.public_key_openssh
-}
+# ArgoCD ApplicationSet for automatic app discovery
+resource "kubernetes_manifest" "app_discovery" {
+  depends_on = [helm_release.argocd, kubernetes_secret.argocd_repo_ssh]
 
-variable "argocd_repo_ssh_secret_name" {
-  description = "Name of the Kubernetes Secret to store ArgoCD repo SSH private key."
-  type        = string
-  default     = "argocd-repo-ssh"
+  manifest = {
+    apiVersion = "argoproj.io/v1alpha1"
+    kind       = "ApplicationSet"
+    metadata = {
+      name      = "app-discovery"
+      namespace = "argocd"
+    }
+    spec = {
+      generators = [
+        {
+          git = {
+            repoURL        = var.use_ssh_for_git ? replace(var.git_repo_url, "https://github.com/", "git@github.com:") : var.git_repo_url
+            revision       = "HEAD"
+            directories = [
+              {
+                path = "apps/*"
+              }
+            ]
+          }
+        }
+      ]
+      template = {
+        metadata = {
+          name = "{{path.basename}}-${var.environment}"
+        }
+        spec = {
+          project = "default"
+          source = {
+            repoURL        = var.use_ssh_for_git ? replace(var.git_repo_url, "https://github.com/", "git@github.com:") : var.git_repo_url
+            targetRevision = "HEAD"
+            path           = "{{path}}/overlays/${var.environment}"
+          }
+          destination = {
+            server    = "https://kubernetes.default.svc"
+            namespace = "{{path.basename}}"
+          }
+          syncPolicy = {
+            automated = {
+              prune    = true
+              selfHeal = true
+            }
+            syncOptions = [
+              "CreateNamespace=true"
+            ]
+          }
+        }
+      }
+    }
+  }
 }
