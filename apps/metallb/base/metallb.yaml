@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: metallb-system
+  name: config
+data:
+  config: |
+    address-pools:
+    - name: default
+      protocol: layer2
+      addresses:
+      # Demo range - private IP space that works in most environments
+      # Override this in your own deployment
+      - 192.168.1.240-192.168.1.250
