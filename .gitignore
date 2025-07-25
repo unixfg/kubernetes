@@ -4,6 +4,7 @@
 .terraform/
 .terraform.lock.hcl
 *.tfplan
+*.tfvars
 
 # IDE and editor files
 .vscode/
