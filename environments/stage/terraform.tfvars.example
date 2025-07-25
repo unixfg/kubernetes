@@ -2,7 +2,7 @@
 environment = "stage"
 
 # AKS
-resource_group_location = "northcentralus"
+resource_group_location = "eastus"
 node_count = 2
 vm_size = "Standard_B2s"
 
