@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+  namespace: hello-nginx
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Hello World - STAGE</title>
+        <style>
+            body { font-family: Arial, sans-serif; text-align: center; margin: 50px; background-color: #fff8dc; }
+            h1 { color: #ff8c00; }
+            .env { background-color: #ffd700; padding: 10px; border-radius: 5px; }
+        </style>
+    </head>
+    <body>
+        <h1>Hello World - Staging</h1>
+        <p>Simple nginx test application running in Kubernetes</p>
+        <div class="env">Environment: <strong>STAGE</strong></div>
+        <p><small>Staging environment - testing production-ready features</small></p>
+    </body>
+    </html>
