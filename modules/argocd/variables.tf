@@ -1,3 +1,6 @@
+# ArgoCD Module Input Variables
+# Defines configurable parameters for the ArgoCD GitOps deployment
+
 variable "environment" {
   description = "Environment name (e.g., dev, stage, prod)"
   type        = string

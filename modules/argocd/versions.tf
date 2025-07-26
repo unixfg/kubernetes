@@ -1,3 +1,6 @@
+# ArgoCD Module Provider Requirements
+# Defines the minimum Terraform version and required providers for ArgoCD module
+
 terraform {
   required_version = ">= 1.0"
   

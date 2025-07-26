@@ -1,11 +1,15 @@
+# Kustomization overlay for development environment
+# Applies dev-specific patches and labels to the base configuration
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 bases:
   - ../../base
 
+# Strategic merge patches for environment-specific customizations
 patchesStrategicMerge:
   - configmap-patch.yaml
 
+# Environment-specific labels
 commonLabels:
   environment: dev

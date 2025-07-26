@@ -1,3 +1,6 @@
+# AKS Module Input Variables
+# Defines configurable parameters for the AKS cluster module
+
 variable "resource_group_location" {
   description = "Azure region for resources"
   type        = string

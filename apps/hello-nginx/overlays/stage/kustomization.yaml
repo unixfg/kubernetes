@@ -1,12 +1,16 @@
+# Kustomization overlay for staging environment
+# Applies stage-specific patches including deployment and configmap changes
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 bases:
   - ../../base
 
+# Strategic merge patches for staging environment customizations
 patchesStrategicMerge:
-  - deployment-patch.yaml
-  - configmap-patch.yaml
+  - deployment-patch.yaml  # Increases replicas for staging
+  - configmap-patch.yaml   # Stage-specific HTML content
 
+# Environment-specific labels
 commonLabels:
   environment: stage

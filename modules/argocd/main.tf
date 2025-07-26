@@ -1,18 +1,19 @@
 # ArgoCD Module - GitOps deployment and management
+# This module deploys ArgoCD with automatic application discovery via ApplicationSet
 
-# ArgoCD namespace
+# Create dedicated namespace for ArgoCD
 resource "kubernetes_namespace" "argocd" {
   metadata {
     name = "argocd"
   }
 }
 
-# Generate SSH key for ArgoCD repository access
+# Generate SSH key pair for ArgoCD repository access
 resource "tls_private_key" "argocd_repo" {
   algorithm = "ED25519"
 }
 
-# Store private key in Kubernetes Secret
+# Store SSH private key in Kubernetes Secret for ArgoCD repository access
 resource "kubernetes_secret" "argocd_repo_ssh" {
   metadata {
     name      = var.argocd_repo_ssh_secret_name
@@ -29,7 +30,7 @@ resource "kubernetes_secret" "argocd_repo_ssh" {
   }
 }
 
-# Install ArgoCD via Helm
+# Install ArgoCD via Helm chart
 resource "helm_release" "argocd" {
   name       = "argocd"
   repository = "https://argoproj.github.io/argo-helm"
@@ -42,7 +43,7 @@ resource "helm_release" "argocd" {
   ]
 }
 
-# Create ConfigMap with environment configuration for ArgoCD
+# Create ConfigMap with environment configuration for applications
 resource "kubernetes_config_map" "environment_config" {
   metadata {
     name      = "environment-config"
@@ -54,13 +55,13 @@ resource "kubernetes_config_map" "environment_config" {
   }
 }
 
-# Wait for ArgoCD to be fully ready before creating ApplicationSet
+# Wait for ArgoCD components to be fully ready before creating ApplicationSet
 resource "time_sleep" "wait_for_argocd" {
   depends_on = [helm_release.argocd]
   create_duration = "30s"
 }
 
-# ArgoCD ApplicationSet for automatic app discovery
+# ArgoCD ApplicationSet for automatic application discovery and deployment
 resource "kubernetes_manifest" "app_discovery" {
   count      = var.create_applicationset ? 1 : 0
   depends_on = [time_sleep.wait_for_argocd, kubernetes_secret.argocd_repo_ssh]
@@ -73,6 +74,7 @@ resource "kubernetes_manifest" "app_discovery" {
       namespace = kubernetes_namespace.argocd.metadata[0].name
     }
     spec = {
+      # Generator discovers applications from Git repository directories
       generators = [
         {
           git = {
@@ -82,6 +84,7 @@ resource "kubernetes_manifest" "app_discovery" {
           }
         }
       ]
+      # Template for creating ArgoCD applications
       template = {
         metadata = {
           name = "{{path.basename}}-${var.environment}"

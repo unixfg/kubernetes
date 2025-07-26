@@ -1,3 +1,5 @@
+# Deployment for hello-nginx application
+# Creates and manages nginx pods serving a simple HTML page
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -6,7 +8,7 @@ metadata:
   labels:
     app: hello-nginx
 spec:
-  replicas: 1
+  replicas: 1  # Single replica for demo purposes
   selector:
     matchLabels:
       app: hello-nginx
@@ -17,7 +19,7 @@ spec:
     spec:
       containers:
       - name: nginx
-        image: nginx:alpine
+        image: nginx:alpine  # Lightweight Alpine-based nginx
         ports:
         - containerPort: 80
           name: http

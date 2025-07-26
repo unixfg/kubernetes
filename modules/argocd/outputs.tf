@@ -1,3 +1,6 @@
+# ArgoCD Module Output Values
+# Provides access to ArgoCD deployment details and connection information
+
 output "argocd_namespace" {
   value       = kubernetes_namespace.argocd.metadata[0].name
   description = "ArgoCD namespace name"

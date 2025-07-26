@@ -1,3 +1,6 @@
+# Stage Environment Input Variables
+# Defines configurable parameters for the staging environment deployment
+
 variable "resource_group_location" {
   description = "Azure region for resources"
   type        = string

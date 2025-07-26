@@ -1,10 +1,14 @@
-# Environment
+# Stage Environment Configuration Example
+# Copy this file to terraform.tfvars and customize for your deployment
+
+# Environment identifier - automatically used for resource naming
 environment = "stage"
 
-# AKS
-resource_group_location = "eastus"
-node_count = 2
-vm_size = "Standard_B2s"
+# Azure Kubernetes Service (AKS) Configuration
+resource_group_location = "eastus"      # Azure region for resource deployment
+node_count = 2                          # Number of worker nodes in the cluster
+vm_size = "Standard_B2s"                # Azure VM size for cluster nodes
 
-# ArgoCD Configuration Source
+# GitOps Repository Configuration
+# Repository containing your application manifests and configurations
 git_repo_url = "https://github.com/unixfg/kubernetes.git"

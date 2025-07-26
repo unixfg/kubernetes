@@ -1,3 +1,5 @@
+# ConfigMap patch for staging environment
+# Customizes HTML content with stage-specific styling (orange theme)
 apiVersion: v1
 kind: ConfigMap
 metadata:

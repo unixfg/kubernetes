@@ -1,3 +1,5 @@
+# ConfigMap containing HTML content for nginx
+# This serves as the main page content for the hello-nginx application
 apiVersion: v1
 kind: ConfigMap
 metadata:

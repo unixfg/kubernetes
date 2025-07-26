@@ -1,3 +1,6 @@
+# AKS Module Output Values
+# Provides access to cluster details and connection information
+
 output "cluster_name" {
   value       = azurerm_kubernetes_cluster.main.name
   description = "Generated AKS cluster name"
@@ -18,6 +21,7 @@ output "random_suffix" {
   description = "Random pet suffix used for naming"
 }
 
+# Cluster connection outputs - marked as sensitive for security
 output "cluster_host" {
   value       = azurerm_kubernetes_cluster.main.kube_config.0.host
   description = "Kubernetes cluster endpoint"

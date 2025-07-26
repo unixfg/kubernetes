@@ -5,6 +5,15 @@ metadata:
   namespace: hello-nginx
 data:
   index.html: |
+# ConfigMap patch for development environment
+# Customizes the HTML content with dev-specific styling and messaging
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+  namespace: hello-nginx
+data:
+  index.html: |
     <!DOCTYPE html>
     <html>
     <head>
@@ -18,7 +27,7 @@ data:
     <body>
         <h1>Hello World - Development</h1>
         <p>Simple nginx test application running in Kubernetes</p>
-        <div class="env">Environment: <strong>DEV</strong></div>
-        <p><small>Development environment - expect changes and instability</small></p>
+        <p class="env">Environment: <strong>DEVELOPMENT</strong></p>
+        <p><em>This is the development version with blue theme</em></p>
     </body>
     </html>

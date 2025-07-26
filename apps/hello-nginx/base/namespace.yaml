@@ -1,3 +1,5 @@
+# Namespace for hello-nginx application
+# Creates an isolated environment for the application resources
 apiVersion: v1
 kind: Namespace
 metadata:

@@ -1,5 +1,6 @@
-# Kubernetes Environment Infrastructure
-# Provides AKS cluster with ArgoCD for GitOps-based application deployment
+# Kubernetes Environment Infrastructure - Stage
+# Deploys AKS cluster with ArgoCD for GitOps-based application deployment
+# This configuration creates the foundation for a complete Kubernetes environment
 
 terraform {
   required_providers {
@@ -30,14 +31,15 @@ terraform {
   }
 }
 
+# Configure Azure Resource Manager provider
 provider "azurerm" {
   features {}
 }
 
-# Get current user info
+# Get current Azure user/service principal configuration
 data "azurerm_client_config" "current" {}
 
-# Dynamic environment name from folder
+# Dynamic configuration based on environment folder name
 locals {
   environment_name = basename(path.cwd)
   common_tags = {
@@ -46,7 +48,7 @@ locals {
   }
 }
 
-# AKS Cluster Module
+# Deploy AKS Cluster using reusable module
 module "aks" {
   source = "../../modules/aks"
   
@@ -57,7 +59,8 @@ module "aks" {
   common_tags            = local.common_tags
 }
 
-# Configure kubectl and helm providers with the cluster details
+# Configure Kubernetes provider with cluster connection details
+# Uses try() to handle potential race conditions during initial deployment
 provider "kubernetes" {
   host                   = try(module.aks.cluster_host, "")
   client_certificate     = try(base64decode(module.aks.cluster_client_certificate), "")
@@ -65,6 +68,7 @@ provider "kubernetes" {
   cluster_ca_certificate = try(base64decode(module.aks.cluster_ca_certificate), "")
 }
 
+# Configure Helm provider with cluster connection details  
 provider "helm" {
   kubernetes {
     host                   = try(module.aks.cluster_host, "")
@@ -74,7 +78,8 @@ provider "helm" {
   }
 }
 
-# Setup kubeconfig after cluster creation
+# Configure local kubeconfig for kubectl access
+# This ensures kubectl commands work immediately after deployment
 resource "null_resource" "setup_kubeconfig" {
   depends_on = [module.aks]
   
@@ -87,7 +92,8 @@ resource "null_resource" "setup_kubeconfig" {
   }
 }
 
-# ArgoCD Module - GitOps controller
+# Deploy ArgoCD GitOps Controller using reusable module
+# ArgoCD will automatically discover and deploy applications from the GitOps repository
 module "argocd" {
   source = "../../modules/argocd"
   
@@ -100,8 +106,11 @@ module "argocd" {
   depends_on = [module.aks, null_resource.setup_kubeconfig]
 }
 
-# Note: All applications (MetalLB, Rook-Ceph, etc.) are deployed via GitOps/ArgoCD
+# Future Infrastructure Components (commented out for GitOps deployment)
+# Note: All applications (MetalLB, Rook-Ceph, etc.) are now deployed via GitOps/ArgoCD
+# This provides better separation of concerns and declarative management
 # See the GitOps repository for application configurations
+# Example: Rook-Ceph storage cluster (disabled - deploy via GitOps instead)
 # module "rook_ceph" {
 #   source = "../../modules/rook-ceph"
 #   
@@ -174,5 +183,6 @@ module "argocd" {
 #   depends_on = [module.aks]
 # }
 
-# MetalLB will be deployed via GitOps/ArgoCD
-# See the gitops repository for MetalLB configuration
+# Example: MetalLB load balancer (disabled - deploy via GitOps instead)
+# MetalLB configuration can be found in the GitOps repository
+# This allows for declarative management and easy updates without Terraform

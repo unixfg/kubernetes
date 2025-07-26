@@ -1,3 +1,6 @@
+# Stage Environment Output Values  
+# Provides access to deployed infrastructure details and connection information
+
 output "cluster_name" {
   value = module.aks.cluster_name
   description = "Generated AKS cluster name"
@@ -13,11 +16,13 @@ output "random_suffix" {
   description = "Random pet suffix used for naming"
 }
 
+# GitOps and Repository Access
 output "argocd_repo_public_key" {
   description = "Public SSH key for ArgoCD to access private config repo"
   value       = trimspace(module.argocd.argocd_repo_public_key)
 }
 
+# Kubernetes Cluster Connection Details (sensitive)
 output "kube_config_raw" {
   description = "Raw kubeconfig for the cluster"
   value       = module.aks.kube_config_raw
@@ -49,7 +54,7 @@ output "cluster_ca_certificate" {
   sensitive = true
 }
 
-# Clean deployment summary
+# User-Friendly Deployment Summary
 output "deployment_summary" {
   description = "Deployment summary"
   value = <<-EOT
