@@ -23,7 +23,7 @@ terraform output
 
 1. **Add SSH Key to GitHub**
    - Copy the SSH public key from the deployment output
-   - Add it to: https://github.com/unixfg/gitops/settings/keys
+   - Add it to your GitOps repository settings (see output for URL)
    - Check "Allow write access" if needed
 
 2. **Access ArgoCD**
@@ -63,7 +63,7 @@ terraform output
 - **AKS Cluster**: Azure Kubernetes Service with minimal node configuration
 - **ArgoCD**: GitOps deployment with ApplicationSet for automatic app discovery
 - **MetalLB**: LoadBalancer implementation with IP pool 10.240.0.100-10.240.0.150
-- **GitOps Repository**: Applications are sourced from `unixfg/gitops` repository
+- **GitOps Repository**: Applications are sourced from the configured GitOps repository
 - **Environment**: Applications deploy to `stage` overlays
 
 ## MetalLB Configuration

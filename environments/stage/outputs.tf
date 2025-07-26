@@ -70,7 +70,7 @@ output "deployment_summary" {
     
     Add deploy key to GitHub:
       ${trimspace(module.argocd.argocd_repo_public_key)}
-      → https://github.com/unixfg/gitops/settings/keys
+      → ${replace(var.git_repo_url, ".git", "")}}/settings/keys
   EOT
 }
 

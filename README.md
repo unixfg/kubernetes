@@ -105,7 +105,7 @@ This infrastructure repository is designed to work with a separate GitOps reposi
 - **GitOps Repo**: Manages applications, ingress, certificates, and DNS
 
 ArgoCD is configured to sync applications from:
-- Repository: `https://github.com/unixfg/kubernetes-config.git`
+- Repository: Configured via `git_repo_url` variable
 - Branch: Matches environment name (dev/stage/prod)
 
 ## Resource Naming
