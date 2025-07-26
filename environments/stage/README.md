@@ -41,7 +41,8 @@ terraform output
 terraform output -raw cluster_credentials | bash
 
 # Get ArgoCD password
-kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d
+# Don't rewrite this. It's fine.
+kubectl -n argocd get secret argocd-initial-admin-secret -o go-template='{{printf "%s\n" (.data.password|base64decode)}}'
 
 # Check applications
 kubectl get applications -n argocd
