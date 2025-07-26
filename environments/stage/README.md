@@ -1,10 +1,9 @@
-# Stage Environment
+# Kubernetes Environment
 
-This directory contains the Terraform configuration for the **stage** environment, including:
+This directory contains the Terraform configuration for the environment, including:
 - AKS Kubernetes cluster
 - ArgoCD for GitOps
-- MetalLB load balancer for LoadBalancer service support
-- Automated application deployment
+- Automated application deployment via GitOps
 
 ## Quick Start
 
@@ -41,18 +40,10 @@ terraform output
 terraform output -raw cluster_credentials | bash
 
 # Get ArgoCD password
-# Don't rewrite this. It's fine.
 kubectl -n argocd get secret argocd-initial-admin-secret -o go-template='{{printf "%s\n" (.data.password|base64decode)}}'
 
 # Check applications
 kubectl get applications -n argocd
-
-# Check MetalLB status
-kubectl get pods -n metallb-system
-kubectl get ipaddresspools -n metallb-system
-
-# Check LoadBalancer services
-kubectl get svc --all-namespaces | grep LoadBalancer
 
 # View all outputs
 terraform output
@@ -60,42 +51,51 @@ terraform output
 
 ## Architecture
 
-- **AKS Cluster**: Azure Kubernetes Service with minimal node configuration
-- **ArgoCD**: GitOps deployment with ApplicationSet for automatic app discovery
-- **MetalLB**: LoadBalancer implementation with IP pool 10.240.0.100-10.240.0.150
-- **GitOps Repository**: Applications are sourced from the configured GitOps repository
-- **Environment**: Applications deploy to `stage` overlays
-
-## MetalLB Configuration
-
-MetalLB provides LoadBalancer service support with:
-- **IP Address Pool**: 10.240.0.100-10.240.0.150 (50 IPs available)
-- **Mode**: Layer 2 (ARP-based) for simplicity in stage environment
-- **Auto-assignment**: Enabled for automatic IP allocation
-
-### Using LoadBalancer Services
-
-After deployment, you can create LoadBalancer services:
-
-```yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: my-app
-spec:
-  type: LoadBalancer
-  ports:
-  - port: 80
-    targetPort: 8080
-  selector:
-    app: my-app
+```mermaid
+graph TD
+    A[Terraform] --> B[AKS Cluster]
+    A --> C[ArgoCD]
+    B --> C
+    C --> D[GitOps Repository]
+    D --> E[ApplicationSet]
+    E --> F[MetalLB]
+    E --> G[Other Apps]
+    F --> H[LoadBalancer Services]
 ```
 
-MetalLB will automatically assign an IP from the pool range.
+### Components
+
+- **AKS Cluster**: Azure Kubernetes Service provides the Kubernetes foundation
+- **ArgoCD**: Deployed via Terraform, manages all subsequent applications
+- **ApplicationSet**: Automatically discovers and deploys apps from GitOps repository
+- **GitOps Applications**: All apps (including MetalLB) are deployed via GitOps commits
+
+### GitOps Workflow
+
+After the base infrastructure is deployed:
+1. ArgoCD monitors the configured Git repository
+2. ApplicationSet discovers application manifests
+3. Applications are automatically deployed to the appropriate environment overlay
+4. Changes are made by committing to the Git repository
 
 ## Files
 
 - `main.tf` - Main Terraform configuration
 - `variables.tf` - Variable definitions
+- `outputs.tf` - Clean, formatted outputs
+- `terraform.tfvars` - Environment-specific values
+
+## Environment Configuration
+
+The environment name is automatically detected from the directory name and used to:
+- Tag all resources appropriately
+- Select the correct Kustomization overlay in GitOps applications
+- Configure environment-specific settings
+
+## Notes
+
+- Infrastructure components (AKS, ArgoCD) are managed by Terraform
+- Applications (MetalLB, etc.) are managed via GitOps
+- This separation allows for infrastructure stability while maintaining application flexibility
 - `outputs.tf` - Clean, formatted outputs
 - `terraform.tfvars` - Environment-specific values
