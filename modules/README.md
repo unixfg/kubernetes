@@ -9,8 +9,7 @@ The infrastructure is organized using a modular approach to promote DRY (Don't R
 ```
 modules/
 ├── aks/          # Azure Kubernetes Service cluster provisioning
-├── argocd/       # ArgoCD GitOps deployment and management
-└── metallb/      # MetalLB load balancer for bare-metal Kubernetes
+└── argocd/       # ArgoCD GitOps deployment and management
 ```
 
 ## Modules Overview
@@ -27,11 +26,13 @@ modules/
 - Creates ApplicationSets for automatic app discovery
 - Configurable sync policies and application directories
 
-### MetalLB Module (`modules/metallb/`)
-- Deploys MetalLB load balancer for LoadBalancer service type support
-- Configures IP address pools for external IP allocation  
-- Supports Layer 2 (ARP) and BGP advertisement modes
-- Provides webhook validation and controller/speaker architecture
+## GitOps Application Management
+
+Applications such as MetalLB and other infrastructure components are managed through ArgoCD and GitOps commits. This approach provides:
+- Declarative configuration stored in Git
+- Automatic synchronization of desired state
+- Version-controlled application deployments
+- Easy rollbacks and audit trails
 
 ## Usage Pattern
 
@@ -60,33 +61,6 @@ module "argocd" {
   
   depends_on = [module.aks]
 }
-
-# MetalLB Module
-module "metallb" {
-  source = "../../modules/metallb"
-  
-  namespace        = "metallb-system"
-  metallb_version = "v0.14.8"
-  
-  ip_address_pools = [
-    {
-      name            = "default-pool"
-      addresses       = ["10.0.100.100-10.0.100.150"]
-      auto_assign     = true
-      avoid_buggy_ips = false
-    }
-  ]
-  
-  l2_advertisements = [
-    {
-      name             = "default-l2"
-      ip_address_pools = ["default-pool"]
-      interfaces       = []
-    }
-  ]
-  
-  depends_on = [module.aks]
-}
 ```
 
 ## Benefits of Modularization
@@ -107,15 +81,6 @@ While the modules provide consistency, each environment can customize:
 - Tagging strategies
 - Sync policies
 
-## Future Enhancements
-
-Consider adding modules for:
-- **Monitoring**: Prometheus, Grafana, alerting
-- **Security**: Network policies, pod security standards
-- **Storage**: Persistent volumes, backup solutions
-- **Networking**: Ingress controllers, service mesh
-- **CI/CD**: Additional GitOps tools, build systems
-
 ## Module Dependencies
 
 The modules have the following dependency relationships:
@@ -123,12 +88,10 @@ The modules have the following dependency relationships:
 ```mermaid
 graph TD
     A[AKS Module] --> B[ArgoCD Module]
-    A --> C[MetalLB Module]
-    B -.-> D[GitOps Applications]
-    C -.-> E[LoadBalancer Services]
+    B --> C[GitOps Applications]
+    C --> D[MetalLB]
+    C --> E[Other Apps]
 ```
 
-- **AKS** is the foundation that provides the Kubernetes cluster
-- **ArgoCD** requires AKS for deployment and manages application lifecycle
-- **MetalLB** requires AKS and provides LoadBalancer service support
-- Applications deployed via ArgoCD can leverage MetalLB for external access
+- **AKS** provides the foundational Kubernetes cluster
+- **ArgoCD** deploys to AKS and manages the application lifecycle
