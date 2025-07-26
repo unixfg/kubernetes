@@ -174,57 +174,5 @@ module "argocd" {
 #   depends_on = [module.aks]
 # }
 
-# MetalLB Load Balancer Module
-module "metallb" {
-  source = "../../modules/metallb"
-  
-  namespace                   = "metallb-system"
-  metallb_version            = "v0.15.2"
-  metallb_helm_chart_version = "0.15.2"
-  enable_bgp                 = false  # Use Layer 2 mode for simplicity in stage
-  
-  # IP address pools for stage environment
-  # For AKS cluster, using a range within the cluster's subnet
-  ip_address_pools = [
-    {
-      name            = "${local.environment_name}-pool"
-      addresses       = ["10.240.0.100-10.240.0.150"]  # AKS default subnet range
-      auto_assign     = true
-      avoid_buggy_ips = false
-    }
-  ]
-  
-  # L2 advertisements for Layer 2 mode
-  l2_advertisements = [
-    {
-      name             = "${local.environment_name}-l2"
-      ip_address_pools = ["${local.environment_name}-pool"]
-      interfaces       = []  # Use all interfaces
-    }
-  ]
-  
-  # Resource configuration for stage
-  controller_resources = {
-    limits = {
-      cpu    = "200m"
-      memory = "200Mi"
-    }
-    requests = {
-      cpu    = "100m"
-      memory = "100Mi"
-    }
-  }
-  
-  speaker_resources = {
-    limits = {
-      cpu    = "200m"
-      memory = "200Mi"
-    }
-    requests = {
-      cpu    = "100m"
-      memory = "100Mi"
-    }
-  }
-  
-  depends_on = [module.aks]
-}
+# MetalLB will be deployed via GitOps/ArgoCD
+# See the gitops repository for MetalLB configuration
