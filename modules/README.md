@@ -9,7 +9,8 @@ The infrastructure is organized using a modular approach to promote DRY (Don't R
 ```
 modules/
 ├── aks/          # Azure Kubernetes Service cluster provisioning
-└── argocd/       # ArgoCD GitOps deployment and management
+├── argocd/       # ArgoCD GitOps deployment and management
+└── metallb/      # MetalLB load balancer for bare-metal Kubernetes
 ```
 
 ## Modules Overview
@@ -25,6 +26,12 @@ modules/
 - Manages SSH keys for private repository access
 - Creates ApplicationSets for automatic app discovery
 - Configurable sync policies and application directories
+
+### MetalLB Module (`modules/metallb/`)
+- Deploys MetalLB load balancer for LoadBalancer service type support
+- Configures IP address pools for external IP allocation  
+- Supports Layer 2 (ARP) and BGP advertisement modes
+- Provides webhook validation and controller/speaker architecture
 
 ## Usage Pattern
 
@@ -50,6 +57,33 @@ module "argocd" {
   git_repo_url                = var.git_repo_url
   use_ssh_for_git             = var.use_ssh_for_git
   argocd_repo_ssh_secret_name = var.argocd_repo_ssh_secret_name
+  
+  depends_on = [module.aks]
+}
+
+# MetalLB Module
+module "metallb" {
+  source = "../../modules/metallb"
+  
+  namespace        = "metallb-system"
+  metallb_version = "v0.14.8"
+  
+  ip_address_pools = [
+    {
+      name            = "default-pool"
+      addresses       = ["10.0.100.100-10.0.100.150"]
+      auto_assign     = true
+      avoid_buggy_ips = false
+    }
+  ]
+  
+  l2_advertisements = [
+    {
+      name             = "default-l2"
+      ip_address_pools = ["default-pool"]
+      interfaces       = []
+    }
+  ]
   
   depends_on = [module.aks]
 }
@@ -81,3 +115,20 @@ Consider adding modules for:
 - **Storage**: Persistent volumes, backup solutions
 - **Networking**: Ingress controllers, service mesh
 - **CI/CD**: Additional GitOps tools, build systems
+
+## Module Dependencies
+
+The modules have the following dependency relationships:
+
+```mermaid
+graph TD
+    A[AKS Module] --> B[ArgoCD Module]
+    A --> C[MetalLB Module]
+    B -.-> D[GitOps Applications]
+    C -.-> E[LoadBalancer Services]
+```
+
+- **AKS** is the foundation that provides the Kubernetes cluster
+- **ArgoCD** requires AKS for deployment and manages application lifecycle
+- **MetalLB** requires AKS and provides LoadBalancer service support
+- Applications deployed via ArgoCD can leverage MetalLB for external access

@@ -54,9 +54,16 @@ resource "kubernetes_config_map" "environment_config" {
   }
 }
 
+# Wait for ArgoCD to be fully ready before creating ApplicationSet
+resource "time_sleep" "wait_for_argocd" {
+  depends_on = [helm_release.argocd]
+  create_duration = "30s"
+}
+
 # ArgoCD ApplicationSet for automatic app discovery
 resource "kubernetes_manifest" "app_discovery" {
-  depends_on = [helm_release.argocd, kubernetes_secret.argocd_repo_ssh]
+  count      = var.create_applicationset ? 1 : 0
+  depends_on = [time_sleep.wait_for_argocd, kubernetes_secret.argocd_repo_ssh]
 
   manifest = {
     apiVersion = "argoproj.io/v1alpha1"

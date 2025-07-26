@@ -77,3 +77,9 @@ variable "sync_policy" {
     ]
   }
 }
+
+variable "create_applicationset" {
+  description = "Whether to create the ApplicationSet for automatic app discovery"
+  type        = bool
+  default     = true
+}
