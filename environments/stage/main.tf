@@ -1,5 +1,5 @@
-# Basic AKS cluster with ArgoCD
-# This is the minimal viable infrastructure
+# Kubernetes Environment Infrastructure
+# Provides AKS cluster with ArgoCD for GitOps-based application deployment
 
 terraform {
   required_providers {
@@ -58,7 +58,6 @@ module "aks" {
 }
 
 # Configure kubectl and helm providers with the cluster details
-# This prevents the chicken-and-egg problem during initial deployment
 provider "kubernetes" {
   host                   = try(module.aks.cluster_host, "")
   client_certificate     = try(base64decode(module.aks.cluster_client_certificate), "")
@@ -88,7 +87,7 @@ resource "null_resource" "setup_kubeconfig" {
   }
 }
 
-# ArgoCD Module - deployed after cluster is ready
+# ArgoCD Module - GitOps controller
 module "argocd" {
   source = "../../modules/argocd"
   
@@ -96,12 +95,13 @@ module "argocd" {
   git_repo_url                = var.git_repo_url
   use_ssh_for_git             = var.use_ssh_for_git
   argocd_repo_ssh_secret_name = var.argocd_repo_ssh_secret_name
-  create_applicationset       = true   # Always enable - we'll handle timing properly
+  create_applicationset       = true
   
   depends_on = [module.aks, null_resource.setup_kubeconfig]
 }
 
-# # Rook-Ceph Storage Module - Commented out for now
+# Note: All applications (MetalLB, Rook-Ceph, etc.) are deployed via GitOps/ArgoCD
+# See the GitOps repository for application configurations
 # module "rook_ceph" {
 #   source = "../../modules/rook-ceph"
 #   
