@@ -106,40 +106,34 @@ output "useful_commands" {
 
 # SOPS Configuration Outputs
 output "sops_key_vault_name" {
-  value       = module.sops_keyvault.key_vault_name
+  value       = module.sops_operator.key_vault_name
   description = "Name of the Key Vault used for SOPS encryption"
 }
 
 output "sops_azure_kv_url" {
-  value       = module.sops_keyvault.sops_azure_kv_url
+  value       = module.sops_operator.sops_azure_kv_url
   description = "Full Azure Key Vault URL for SOPS encryption"
 }
 
 # Workload Identity configuration for sops-secrets-operator
 output "sops_operator_client_id" {
-  value       = module.sops_keyvault.workload_identity_client_id
+  value       = module.sops_operator.workload_identity_client_id
   description = "Client ID for the sops-secrets-operator workload identity"
 }
 
-output "sops_configuration" {
-  description = "SOPS configuration instructions"
+output "sops_setup_instructions" {
+  description = "SOPS setup instructions"
   value = <<-EOT
     
-    📋 Next Steps for SOPS Configuration:
+    📋 SOPS Configuration Instructions:
     
     1. Update ~/.sops.yaml or gitops/.sops.yaml:
     
     creation_rules:
       - path_regex: sops-secrets/.*\.yaml$
-        azure_keyvault: "${module.sops_keyvault.sops_azure_kv_url}"
+        azure_keyvault: "${module.sops_operator.sops_azure_kv_url}"
     
-    2. Update gitops/apps/sops-secrets-operator/overlays/stage/kustomization.yaml:
-    
-    Add patches to configure workload identity:
-    
-    patchesStrategicMerge:
-      - service-account-patch.yaml
-      - deployment-patch.yaml
+    2. For Azure workload identity, update gitops/apps/sops-secrets-operator/overlays/stage/:
     
     Create service-account-patch.yaml:
     apiVersion: v1
@@ -148,7 +142,7 @@ output "sops_configuration" {
       name: sops-secrets-operator-controller-manager
       namespace: sops-secrets-operator-system
       annotations:
-        azure.workload.identity/client-id: "${module.sops_keyvault.workload_identity_client_id}"
+        azure.workload.identity/client-id: "${module.sops_operator.workload_identity_client_id}"
       labels:
         azure.workload.identity/use: "true"
     
@@ -169,16 +163,12 @@ output "sops_configuration" {
           - name: manager
             env:
             - name: AZURE_CLIENT_ID
-              value: "${module.sops_keyvault.workload_identity_client_id}"
+              value: "${module.sops_operator.workload_identity_client_id}"
             - name: AZURE_TENANT_ID
               value: "${data.azurerm_client_config.current.tenant_id}"
     
     3. Test encryption:
-    sops -e --azure-kv "${module.sops_keyvault.sops_azure_kv_url}" --encrypted-suffix='Templates' test.yaml
-    
-    Key Vault: ${module.sops_keyvault.key_vault_name}
-    Resource Group: ${module.aks.resource_group_name}
-    Client ID: ${module.sops_keyvault.workload_identity_client_id}
+    sops -e --azure-kv "${module.sops_operator.sops_azure_kv_url}" --encrypted-suffix='Templates' test.yaml
     
   EOT
 }

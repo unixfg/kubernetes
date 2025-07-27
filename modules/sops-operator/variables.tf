@@ -1,8 +1,8 @@
-# SOPS Key Vault Module Variables
-# Input variables for configuring the SOPS Key Vault module
+# SOPS Operator Module Variables
+# Azure Key Vault configuration for secret encryption
 
 variable "key_vault_name" {
-  description = "Name of the Key Vault"
+  description = "Name of the Azure Key Vault"
   type        = string
 }
 
@@ -12,7 +12,7 @@ variable "location" {
 }
 
 variable "resource_group_name" {
-  description = "Name of the resource group"
+  description = "Name of the Azure resource group"
   type        = string
 }
 
@@ -20,6 +20,12 @@ variable "key_name" {
   description = "Name of the SOPS encryption key"
   type        = string
   default     = "sops-key"
+}
+
+variable "tags" {
+  description = "Resource tags"
+  type        = map(string)
+  default     = {}
 }
 
 variable "soft_delete_retention_days" {
@@ -34,12 +40,6 @@ variable "purge_protection_enabled" {
   default     = false
 }
 
-variable "tags" {
-  description = "Resource tags"
-  type        = map(string)
-  default     = {}
-}
-
 variable "access_policies" {
   description = "Additional access policies for the Key Vault"
   type = map(object({
@@ -49,14 +49,15 @@ variable "access_policies" {
   default = {}
 }
 
+# Workload Identity Configuration
 variable "create_workload_identity" {
-  description = "Create workload identity resources for Kubernetes integration"
+  description = "Create workload identity resources"
   type        = bool
   default     = false
 }
 
 variable "workload_identity_name" {
-  description = "Name for workload identity application"
+  description = "Name for workload identity"
   type        = string
   default     = ""
 }
@@ -68,7 +69,7 @@ variable "workload_identity_description" {
 }
 
 variable "oidc_issuer_url" {
-  description = "OIDC issuer URL from AKS cluster"
+  description = "OIDC issuer URL from Kubernetes cluster"
   type        = string
   default     = ""
 }
@@ -76,5 +77,5 @@ variable "oidc_issuer_url" {
 variable "workload_identity_subject" {
   description = "Subject for federated identity (Kubernetes service account)"
   type        = string
-  default     = ""
+  default     = "system:serviceaccount:sops-secrets-operator-system:sops-secrets-operator"
 }

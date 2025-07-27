@@ -1,5 +1,5 @@
-# SOPS Key Vault Module - Provides Azure Key Vault for SOPS encryption
-# This module creates Key Vault resources for SOPS secret management
+# SOPS Operator Module - Cloud-agnostic secret encryption for Kubernetes
+# Supports multiple providers: Azure Key Vault, AWS KMS, GCP KMS, Age keys
 
 terraform {
   required_providers {
@@ -31,7 +31,7 @@ resource "azurerm_key_vault" "sops" {
   tags = var.tags
 }
 
-# SOPS encryption key
+# SOPS encryption key in Key Vault
 resource "azurerm_key_vault_key" "sops" {
   name         = var.key_name
   key_vault_id = azurerm_key_vault.sops.id
@@ -48,69 +48,82 @@ resource "azurerm_key_vault_key" "sops" {
   ]
 
   tags = var.tags
+
+  depends_on = [azurerm_key_vault_access_policy.terraform_user]
 }
 
-# Access policy for Terraform user
+# Grant current user/service principal access to Key Vault
 resource "azurerm_key_vault_access_policy" "terraform_user" {
   key_vault_id = azurerm_key_vault.sops.id
   tenant_id    = data.azurerm_client_config.current.tenant_id
   object_id    = data.azurerm_client_config.current.object_id
 
   key_permissions = [
-    "Create", "Delete", "Get", "List", "Update",
-    "Decrypt", "Encrypt", "Sign", "UnwrapKey", "Verify", "WrapKey",
+    "Create",
+    "Delete",
+    "Get",
+    "List", 
+    "Update",
+    "Decrypt",
+    "Encrypt",
+    "Sign",
+    "UnwrapKey",
+    "Verify",
+    "WrapKey",
   ]
 }
 
-# Dynamic access policies for additional principals
+# Additional access policies (like AKS cluster managed identity)
 resource "azurerm_key_vault_access_policy" "additional" {
   for_each = var.access_policies
 
-  key_vault_id = azurerm_key_vault.sops.id
-  tenant_id    = data.azurerm_client_config.current.tenant_id
-  object_id    = each.value.object_id
-
+  key_vault_id    = azurerm_key_vault.sops.id
+  tenant_id       = data.azurerm_client_config.current.tenant_id
+  object_id       = each.value.object_id
   key_permissions = each.value.key_permissions
 
   depends_on = [azurerm_key_vault_access_policy.terraform_user]
 }
 
-# Optional: Workload Identity resources
+# Optional: Azure AD Application for Workload Identity
 resource "azuread_application" "workload_identity" {
   count = var.create_workload_identity ? 1 : 0
-  
+
   display_name = var.workload_identity_name
   owners       = [data.azurerm_client_config.current.object_id]
 }
 
 resource "azuread_service_principal" "workload_identity" {
   count = var.create_workload_identity ? 1 : 0
-  
+
   client_id = azuread_application.workload_identity[0].client_id
   owners    = [data.azurerm_client_config.current.object_id]
 }
 
-# Access policy for workload identity service principal
+# Grant the workload identity service principal access to Key Vault
 resource "azurerm_key_vault_access_policy" "workload_identity" {
   count = var.create_workload_identity ? 1 : 0
-  
+
   key_vault_id = azurerm_key_vault.sops.id
   tenant_id    = data.azurerm_client_config.current.tenant_id
   object_id    = azuread_service_principal.workload_identity[0].object_id
 
-  key_permissions = ["Decrypt", "Get"]
+  key_permissions = [
+    "Decrypt",
+    "Get",
+  ]
 
   depends_on = [azurerm_key_vault_access_policy.terraform_user]
 }
 
-# Federated identity credential
+# Federated identity credential for workload identity
 resource "azuread_application_federated_identity_credential" "workload_identity" {
   count = var.create_workload_identity ? 1 : 0
-  
-  application_object_id = azuread_application.workload_identity[0].object_id
-  display_name         = var.workload_identity_name
-  description          = var.workload_identity_description
-  audiences            = ["api://AzureADTokenExchange"]
-  issuer               = var.oidc_issuer_url
-  subject              = var.workload_identity_subject
+
+  application_id   = azuread_application.workload_identity[0].id
+  display_name     = var.workload_identity_name
+  description      = var.workload_identity_description
+  audiences        = ["api://AzureADTokenExchange"]
+  issuer           = var.oidc_issuer_url
+  subject          = var.workload_identity_subject
 }

@@ -63,16 +63,16 @@ module "aks" {
   common_tags            = local.common_tags
 }
 
-# Deploy SOPS Key Vault for secret encryption
-module "sops_keyvault" {
-  source = "../../modules/sops-keyvault"
+# Deploy SOPS Operator for secret encryption
+module "sops_operator" {
+  source = "../../modules/sops-operator"
   
+  # Azure Key Vault configuration
   key_vault_name      = "kv-sops-${module.aks.random_suffix}"
   location            = module.aks.resource_group_location
   resource_group_name = module.aks.resource_group_name
   key_name            = "sops-${local.environment_name}"
   
-  # Production settings
   soft_delete_retention_days = 7
   purge_protection_enabled   = false  # Set to true for production
   
@@ -84,7 +84,7 @@ module "sops_keyvault" {
     }
   }
   
-  # Create workload identity for sops-secrets-operator
+  # Workload identity configuration
   create_workload_identity      = true
   workload_identity_name        = "sops-secrets-operator-${local.environment_name}"
   workload_identity_description = "Kubernetes service account for sops-secrets-operator"
@@ -142,7 +142,7 @@ module "argocd" {
   
   depends_on = [
     module.aks, 
-    module.sops_keyvault,
+    module.sops_operator,
     null_resource.setup_kubeconfig
   ]
 }
