@@ -44,6 +44,10 @@ resource "azurerm_kubernetes_cluster" "main" {
     type = "SystemAssigned"
   }
 
+  # Enable workload identity for Azure integration
+  oidc_issuer_enabled       = true
+  workload_identity_enabled = true
+
   tags = merge(var.common_tags, {
     component = "aks-cluster"
   })

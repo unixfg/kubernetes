@@ -8,6 +8,10 @@ terraform {
       source  = "hashicorp/azurerm"
       version = "~>3.0"
     }
+    azuread = {
+      source  = "hashicorp/azuread"
+      version = "~>2.0"
+    }
     kubernetes = {
       source  = "hashicorp/kubernetes"
       version = "~>2.0"
@@ -59,6 +63,39 @@ module "aks" {
   common_tags            = local.common_tags
 }
 
+# Deploy SOPS Key Vault for secret encryption
+module "sops_keyvault" {
+  source = "../../modules/sops-keyvault"
+  
+  key_vault_name      = "kv-sops-${module.aks.random_suffix}"
+  location            = module.aks.resource_group_location
+  resource_group_name = module.aks.resource_group_name
+  key_name            = "sops-${local.environment_name}"
+  
+  # Production settings
+  soft_delete_retention_days = 7
+  purge_protection_enabled   = false  # Set to true for production
+  
+  # Grant AKS cluster access
+  access_policies = {
+    aks_cluster = {
+      object_id       = module.aks.cluster_identity_principal_id
+      key_permissions = ["Decrypt", "Encrypt", "Get", "List"]
+    }
+  }
+  
+  # Create workload identity for sops-secrets-operator
+  create_workload_identity      = true
+  workload_identity_name        = "sops-secrets-operator-${local.environment_name}"
+  workload_identity_description = "Kubernetes service account for sops-secrets-operator"
+  oidc_issuer_url              = module.aks.cluster_oidc_issuer_url
+  workload_identity_subject    = "system:serviceaccount:sops-secrets-operator-system:sops-secrets-operator-controller-manager"
+  
+  tags = merge(local.common_tags, {
+    component = "sops-encryption"
+  })
+}
+
 # Configure Kubernetes provider with cluster connection details
 # Uses try() to handle potential race conditions during initial deployment
 provider "kubernetes" {
@@ -103,7 +140,11 @@ module "argocd" {
   argocd_repo_ssh_secret_name = var.argocd_repo_ssh_secret_name
   create_applicationset       = true
   
-  depends_on = [module.aks, null_resource.setup_kubeconfig]
+  depends_on = [
+    module.aks, 
+    module.sops_keyvault,
+    null_resource.setup_kubeconfig
+  ]
 }
 
 # Future Infrastructure Components (commented out for GitOps deployment)

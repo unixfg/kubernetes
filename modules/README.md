@@ -81,17 +81,6 @@ While the modules provide consistency, each environment can customize:
 - Tagging strategies
 - Sync policies
 
-## Module Dependencies
-
-The modules have the following dependency relationships:
-
-```mermaid
-graph TD
-    A[AKS Module] --> B[ArgoCD Module]
-    B --> C[GitOps Applications]
-    C --> D[MetalLB]
-    C --> E[Other Apps]
-```
-
+## Dependencies
 - **AKS** provides the foundational Kubernetes cluster
 - **ArgoCD** deploys to AKS and manages the application lifecycle

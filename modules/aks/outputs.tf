@@ -56,3 +56,20 @@ output "cluster_credentials_command" {
   value       = "az aks get-credentials --resource-group ${azurerm_resource_group.main.name} --name ${azurerm_kubernetes_cluster.main.name}"
   description = "Command to configure kubectl for this cluster"
 }
+
+# Cluster managed identity outputs for Key Vault access
+output "cluster_identity_principal_id" {
+  value       = azurerm_kubernetes_cluster.main.identity.0.principal_id
+  description = "Principal ID of the cluster's system-assigned managed identity"
+}
+
+output "cluster_identity_tenant_id" {
+  value       = azurerm_kubernetes_cluster.main.identity.0.tenant_id
+  description = "Tenant ID of the cluster's system-assigned managed identity"
+}
+
+# Workload Identity outputs
+output "cluster_oidc_issuer_url" {
+  value       = azurerm_kubernetes_cluster.main.oidc_issuer_url
+  description = "OIDC issuer URL for workload identity federation"
+}
