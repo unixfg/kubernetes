@@ -1,5 +1,5 @@
-# SOPS Operator Module - Cloud-agnostic secret encryption for Kubernetes
-# Supports multiple providers: Azure Key Vault, AWS KMS, GCP KMS, Age keys
+# Azure Key Vault SOPS Module - Azure-specific secret encryption for Kubernetes
+# Provides Azure Key Vault integration for SOPS encryption with workload identity
 
 terraform {
   required_providers {
@@ -130,7 +130,7 @@ resource "kubernetes_config_map" "sops_workload_identity" {
     namespace = "sops-secrets-operator-system"  # Same namespace as the operator
     labels = {
       "app.kubernetes.io/managed-by" = "terraform"
-      "app.kubernetes.io/component"  = "sops-operator"
+      "app.kubernetes.io/component"  = "akv-sops"
       "environment"                  = var.environment
     }
   }

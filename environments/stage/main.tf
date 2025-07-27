@@ -63,9 +63,9 @@ module "aks" {
   common_tags            = local.common_tags
 }
 
-# Deploy SOPS Operator for secret encryption
-module "sops_operator" {
-  source = "../../modules/sops-operator"
+# Deploy Azure Key Vault SOPS integration
+module "akv_sops" {
+  source = "../../modules/akv-sops"
   
   # Azure Key Vault configuration
   key_vault_name      = "kv-sops-${module.aks.random_suffix}"
@@ -144,7 +144,7 @@ module "argocd" {
   
   depends_on = [
     module.aks, 
-    module.sops_operator,
+    module.akv_sops,
     null_resource.setup_kubeconfig
   ]
 }

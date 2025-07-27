@@ -106,18 +106,18 @@ output "useful_commands" {
 
 # SOPS Configuration Outputs
 output "sops_key_vault_name" {
-  value       = module.sops_operator.key_vault_name
+  value       = module.akv_sops.key_vault_name
   description = "Name of the Key Vault used for SOPS encryption"
 }
 
 output "sops_azure_kv_url" {
-  value       = module.sops_operator.sops_azure_kv_url
+  value       = module.akv_sops.sops_azure_kv_url
   description = "Full Azure Key Vault URL for SOPS encryption"
 }
 
 # Workload Identity configuration for sops-secrets-operator
-output "sops_operator_client_id" {
-  value       = module.sops_operator.workload_identity_client_id
+output "akv_sops_client_id" {
+  value       = module.akv_sops.workload_identity_client_id
   description = "Client ID for the sops-secrets-operator workload identity"
 }
 
@@ -131,7 +131,7 @@ output "sops_setup_instructions" {
     
     creation_rules:
       - path_regex: sops-secrets/.*\.yaml$
-        azure_keyvault: "${module.sops_operator.sops_azure_kv_url}"
+        azure_keyvault: "${module.akv_sops.sops_azure_kv_url}"
     
     2. For Azure workload identity, update gitops/apps/sops-secrets-operator/overlays/stage/:
     
@@ -142,7 +142,7 @@ output "sops_setup_instructions" {
       name: sops-secrets-operator-controller-manager
       namespace: sops-secrets-operator-system
       annotations:
-        azure.workload.identity/client-id: "${module.sops_operator.workload_identity_client_id}"
+        azure.workload.identity/client-id: "${module.akv_sops.workload_identity_client_id}"
       labels:
         azure.workload.identity/use: "true"
     
@@ -163,12 +163,12 @@ output "sops_setup_instructions" {
           - name: manager
             env:
             - name: AZURE_CLIENT_ID
-              value: "${module.sops_operator.workload_identity_client_id}"
+              value: "${module.akv_sops.workload_identity_client_id}"
             - name: AZURE_TENANT_ID
               value: "${data.azurerm_client_config.current.tenant_id}"
     
     3. Test encryption:
-    sops -e --azure-kv "${module.sops_operator.sops_azure_kv_url}" --encrypted-suffix='Templates' test.yaml
+    sops -e --azure-kv "${module.akv_sops.sops_azure_kv_url}" --encrypted-suffix='Templates' test.yaml
     
   EOT
 }
