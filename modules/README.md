@@ -1,6 +1,6 @@
 # Terraform Modules
 
-This directory contains reusable Terraform modules for provisioning and managing Kubernetes infrastructure on Azure.
+This directory contains reusable Terraform modules for provisioning and managing Kubernetes infrastructure
 
 ## Architecture
 
@@ -8,23 +8,18 @@ The infrastructure is organized using a modular approach to promote DRY (Don't R
 
 ```
 modules/
-├── aks/          # Azure Kubernetes Service cluster provisioning
-└── argocd/       # ArgoCD GitOps deployment and management
+├── aks/       # Azure Kubernetes Service cluster provisioning
+├── akv-sops/  # Azure Key Vault SOPS integration for secret encryption
+└── argocd/    # ArgoCD GitOps deployment and management
 ```
 
 ## Modules Overview
 
-### AKS Module (`modules/aks/`)
-- Provisions Azure Kubernetes Service clusters
-- Handles resource groups, random naming, and cluster configuration
-- Provides cluster credentials and connection details
-- Supports customizable node count, VM sizes, and tagging
-
-### ArgoCD Module (`modules/argocd/`)
-- Installs ArgoCD via Helm for GitOps workflows
-- Manages SSH keys for private repository access
-- Creates ApplicationSets for automatic app discovery
-- Configurable sync policies and application directories
+| Module      | Purpose                                                      |
+|-------------|--------------------------------------------------------------|
+| `aks`       | Provisions Azure Kubernetes Service clusters, resource groups, random naming, and cluster configuration. Provides cluster credentials and connection details. Supports customizable node count, VM sizes, and tagging. |
+| `akv-sops`  | Creates and configures Azure Key Vault for SOPS secret encryption, including RBAC, SOPS key, and workload identity for sops-secrets-operator. Outputs configuration for GitOps consumption. |
+| `argocd`    | Installs ArgoCD via Helm for GitOps workflows, manages SSH keys for private repository access, creates ApplicationSets for automatic app discovery, and supports configurable sync policies and application directories. |
 
 ## GitOps Application Management
 
@@ -42,7 +37,6 @@ Each environment (`dev`, `stage`, `prod`) uses these modules in a consistent pat
 # AKS Cluster Module
 module "aks" {
   source = "../../modules/aks"
-  
   resource_group_location = var.resource_group_location
   node_count             = var.node_count
   vm_size                = var.vm_size
@@ -50,15 +44,24 @@ module "aks" {
   common_tags            = local.common_tags
 }
 
+# Azure Key Vault SOPS Module
+module "akv_sops" {
+  source = "../../modules/akv-sops"
+  key_vault_name      = "kv-sops-${module.aks.random_suffix}"
+  location            = module.aks.resource_group_location
+  resource_group_name = module.aks.resource_group_name
+  environment         = var.environment
+  # ...other configuration...
+  depends_on = [module.aks]
+}
+
 # ArgoCD Module
 module "argocd" {
   source = "../../modules/argocd"
-  
   environment                  = var.environment
-  git_repo_url                = var.git_repo_url
-  use_ssh_for_git             = var.use_ssh_for_git
-  argocd_repo_ssh_secret_name = var.argocd_repo_ssh_secret_name
-  
+  git_repo_url                 = var.git_repo_url
+  use_ssh_for_git              = var.use_ssh_for_git
+  argocd_repo_ssh_secret_name  = var.argocd_repo_ssh_secret_name
   depends_on = [module.aks]
 }
 ```
@@ -76,11 +79,12 @@ module "argocd" {
 
 While the modules provide consistency, each environment can customize:
 - Node counts and VM sizes
-- ArgoCD configuration values
+- ArgoCD and SOPS configuration values
 - Git repository settings
 - Tagging strategies
 - Sync policies
 
 ## Dependencies
 - **AKS** provides the foundational Kubernetes cluster
+- **akv-sops** provisions Key Vault and SOPS integration for secret management
 - **ArgoCD** deploys to AKS and manages the application lifecycle
