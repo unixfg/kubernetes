@@ -47,3 +47,24 @@ output "service_principal_object_id" {
   description = "Object ID of the service principal for workload identity"
   value       = var.create_workload_identity ? azuread_service_principal.workload_identity[0].object_id : ""
 }
+
+output "workload_identity_configuration" {
+  description = "Configuration values for GitOps workload identity setup"
+  value = var.create_workload_identity ? {
+    client_id    = azuread_application.workload_identity[0].client_id
+    tenant_id    = data.azurerm_client_config.current.tenant_id
+    instructions = <<-EOT
+      To configure workload identity in your GitOps repository:
+      
+      1. Update service-account-patch.yaml with:
+         azure.workload.identity/client-id: "${azuread_application.workload_identity[0].client_id}"
+      
+      2. Update deployment-patch.yaml with:
+         AZURE_CLIENT_ID: "${azuread_application.workload_identity[0].client_id}"
+         AZURE_TENANT_ID: "${data.azurerm_client_config.current.tenant_id}"
+      
+      3. Ensure both ServiceAccount and Pod have label:
+         azure.workload.identity/use: "true"
+    EOT
+  } : null
+}

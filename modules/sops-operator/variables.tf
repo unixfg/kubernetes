@@ -28,6 +28,11 @@ variable "tags" {
   default     = {}
 }
 
+variable "environment" {
+  description = "Environment name (e.g., dev, stage, prod)"
+  type        = string
+}
+
 variable "soft_delete_retention_days" {
   description = "Soft delete retention in days"
   type        = number
@@ -40,11 +45,11 @@ variable "purge_protection_enabled" {
   default     = false
 }
 
-variable "access_policies" {
-  description = "Additional access policies for the Key Vault"
+variable "rbac_assignments" {
+  description = "Additional RBAC role assignments for the Key Vault"
   type = map(object({
-    object_id       = string
-    key_permissions = list(string)
+    principal_id         = string
+    role_definition_name = string
   }))
   default = {}
 }

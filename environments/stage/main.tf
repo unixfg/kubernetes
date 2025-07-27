@@ -76,11 +76,11 @@ module "sops_operator" {
   soft_delete_retention_days = 7
   purge_protection_enabled   = false  # Set to true for production
   
-  # Grant AKS cluster access
-  access_policies = {
+  # Grant AKS cluster access via RBAC
+  rbac_assignments = {
     aks_cluster = {
-      object_id       = module.aks.cluster_identity_principal_id
-      key_permissions = ["Decrypt", "Encrypt", "Get", "List"]
+      principal_id         = module.aks.cluster_identity_principal_id
+      role_definition_name = "Key Vault Crypto User"
     }
   }
   
@@ -89,7 +89,9 @@ module "sops_operator" {
   workload_identity_name        = "sops-secrets-operator-${local.environment_name}"
   workload_identity_description = "Kubernetes service account for sops-secrets-operator"
   oidc_issuer_url              = module.aks.cluster_oidc_issuer_url
-  workload_identity_subject    = "system:serviceaccount:sops-secrets-operator-system:sops-secrets-operator-controller-manager"
+  workload_identity_subject    = "system:serviceaccount:sops-secrets-operator-system:sops-secrets-operator"
+  
+  environment = local.environment_name
   
   tags = merge(local.common_tags, {
     component = "sops-encryption"
