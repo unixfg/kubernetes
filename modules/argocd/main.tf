@@ -61,7 +61,7 @@ resource "time_sleep" "wait_for_argocd" {
   create_duration = "30s"
 }
 
-# ArgoCD ApplicationSet for automatic application discovery and deployment
+# ArgoCD ApplicationSet for automatic Kustomize application discovery and deployment
 resource "kubernetes_manifest" "app_discovery" {
   count      = var.create_applicationset ? 1 : 0
   depends_on = [time_sleep.wait_for_argocd, kubernetes_secret.argocd_repo_ssh]
@@ -70,11 +70,11 @@ resource "kubernetes_manifest" "app_discovery" {
     apiVersion = "argoproj.io/v1alpha1"
     kind       = "ApplicationSet"
     metadata = {
-      name      = "app-discovery"
+      name      = "kustomize-app-discovery"
       namespace = kubernetes_namespace.argocd.metadata[0].name
     }
     spec = {
-      # Generator discovers applications from Git repository directories
+      # Generator discovers Kustomize applications from Git repository directories
       generators = [
         {
           git = {
@@ -84,7 +84,7 @@ resource "kubernetes_manifest" "app_discovery" {
           }
         }
       ]
-      # Template for creating ArgoCD applications
+      # Template for creating ArgoCD applications for Kustomize apps
       template = {
         metadata = {
           name = "{{path.basename}}-${var.environment}"
@@ -99,6 +99,54 @@ resource "kubernetes_manifest" "app_discovery" {
           destination = {
             server    = "https://kubernetes.default.svc"
             namespace = "{{path.basename}}"
+          }
+          syncPolicy = var.sync_policy
+        }
+      }
+    }
+  }
+}
+
+# ArgoCD ApplicationSet for automatic Helm application discovery and deployment
+resource "kubernetes_manifest" "helm_app_discovery" {
+  count      = var.create_applicationset ? 1 : 0
+  depends_on = [time_sleep.wait_for_argocd, kubernetes_secret.argocd_repo_ssh]
+
+  manifest = {
+    apiVersion = "argoproj.io/v1alpha1"
+    kind       = "ApplicationSet"
+    metadata = {
+      name      = "helm-app-discovery"
+      namespace = kubernetes_namespace.argocd.metadata[0].name
+    }
+    spec = {
+      # Generator discovers Helm applications from Git repository files
+      generators = [
+        {
+          git = {
+            repoURL  = var.use_ssh_for_git ? replace(var.git_repo_url, "https://github.com/", "git@github.com:") : var.git_repo_url
+            revision = var.git_revision
+            files = [
+              { path = "gitops/apps/*/helm/${var.environment}/application.yaml" }
+            ]
+          }
+        }
+      ]
+      # Template for creating ArgoCD applications for Helm apps
+      template = {
+        metadata = {
+          name = "{{path[2]}}-${var.environment}-helm"
+        }
+        spec = {
+          project = var.argocd_project
+          source = {
+            repoURL        = var.use_ssh_for_git ? replace(var.git_repo_url, "https://github.com/", "git@github.com:") : var.git_repo_url
+            targetRevision = var.git_revision
+            path           = "{{path.path}}"
+          }
+          destination = {
+            server    = "https://kubernetes.default.svc"
+            namespace = "{{path[2]}}"
           }
           syncPolicy = var.sync_policy
         }
