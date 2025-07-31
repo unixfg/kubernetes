@@ -63,6 +63,27 @@ module "aks" {
   common_tags            = local.common_tags
 }
 
+# Create namespace for sops-secrets-operator
+resource "kubernetes_namespace" "sops_secrets_operator" {
+  depends_on = [
+    module.aks,
+    null_resource.wait_for_cluster,
+    null_resource.setup_kubeconfig
+  ]
+  
+  metadata {
+    name = "sops-secrets-operator-system"
+    labels = {
+      "name" = "sops-secrets-operator-system"
+      "app.kubernetes.io/managed-by" = "terraform"
+    }
+  }
+  
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
 # Deploy Azure Key Vault SOPS integration
 module "akv_sops" {
   source = "../../modules/akv-sops"
@@ -96,24 +117,30 @@ module "akv_sops" {
   tags = merge(local.common_tags, {
     component = "sops-encryption"
   })
+  
+  depends_on = [
+    module.aks,
+    kubernetes_namespace.sops_secrets_operator,
+    null_resource.wait_for_cluster
+  ]
 }
 
 # Configure Kubernetes provider with cluster connection details
 # Uses try() to handle potential race conditions during initial deployment
 provider "kubernetes" {
-  host                   = try(module.aks.cluster_host, "")
-  client_certificate     = try(base64decode(module.aks.cluster_client_certificate), "")
-  client_key             = try(base64decode(module.aks.cluster_client_key), "")
-  cluster_ca_certificate = try(base64decode(module.aks.cluster_ca_certificate), "")
+  host                   = length(module.aks.cluster_host) > 0 ? module.aks.cluster_host : null
+  client_certificate     = length(module.aks.cluster_client_certificate) > 0 ? base64decode(module.aks.cluster_client_certificate) : null
+  client_key             = length(module.aks.cluster_client_key) > 0 ? base64decode(module.aks.cluster_client_key) : null
+  cluster_ca_certificate = length(module.aks.cluster_ca_certificate) > 0 ? base64decode(module.aks.cluster_ca_certificate) : null
 }
 
 # Configure Helm provider with cluster connection details  
 provider "helm" {
   kubernetes {
-    host                   = try(module.aks.cluster_host, "")
-    client_certificate     = try(base64decode(module.aks.cluster_client_certificate), "")
-    client_key             = try(base64decode(module.aks.cluster_client_key), "")
-    cluster_ca_certificate = try(base64decode(module.aks.cluster_ca_certificate), "")
+    host                   = length(module.aks.cluster_host) > 0 ? module.aks.cluster_host : null
+    client_certificate     = length(module.aks.cluster_client_certificate) > 0 ? base64decode(module.aks.cluster_client_certificate) : null
+    client_key             = length(module.aks.cluster_client_key) > 0 ? base64decode(module.aks.cluster_client_key) : null
+    cluster_ca_certificate = length(module.aks.cluster_ca_certificate) > 0 ? base64decode(module.aks.cluster_ca_certificate) : null
   }
 }
 
@@ -131,101 +158,69 @@ resource "null_resource" "setup_kubeconfig" {
   }
 }
 
+# Wait for AKS cluster to be fully ready before proceeding
+resource "null_resource" "wait_for_cluster" {
+  depends_on = [null_resource.setup_kubeconfig]
+  
+  provisioner "local-exec" {
+    command = <<-EOT
+      # Wait for cluster to be responsive with retry logic
+      echo "Waiting for cluster to be ready..."
+      for i in {1..30}; do
+        if kubectl cluster-info --request-timeout=10s 2>/dev/null; then
+          echo "Cluster is ready! Checking nodes..."
+          kubectl get nodes --request-timeout=10s
+          echo "Cluster validation complete!"
+          exit 0
+        fi
+        echo "Attempt $i/30: Cluster not ready yet, waiting 10 seconds..."
+        sleep 10
+      done
+      echo "ERROR: Cluster failed to become ready after 300 seconds"
+      exit 1
+    EOT
+    
+    interpreter = ["bash", "-c"]
+  }
+  
+  triggers = {
+    cluster_name = module.aks.cluster_name
+  }
+}
+
 # Deploy ArgoCD GitOps Controller using reusable module
 # ArgoCD will automatically discover and deploy applications from the GitOps repository
 module "argocd" {
   source = "../../modules/argocd"
   
-  environment                  = var.environment
+  environment                 = var.environment
   git_repo_url                = var.git_repo_url
   use_ssh_for_git             = var.use_ssh_for_git
   argocd_repo_ssh_secret_name = var.argocd_repo_ssh_secret_name
-  create_applicationset       = true
+  create_applicationset       = false  # Disable ApplicationSet creation initially
   
   depends_on = [
     module.aks, 
     module.akv_sops,
-    null_resource.setup_kubeconfig
+    null_resource.setup_kubeconfig,
+    null_resource.wait_for_cluster
   ]
 }
 
-# Future Infrastructure Components (commented out for GitOps deployment)
-# Note: All applications (MetalLB, Rook-Ceph, etc.) are now deployed via GitOps/ArgoCD
-# This provides better separation of concerns and declarative management
-# See the GitOps repository for application configurations
-# Example: Rook-Ceph storage cluster (disabled - deploy via GitOps instead)
-# module "rook_ceph" {
-#   source = "../../modules/rook-ceph"
-#   
-#   cluster_name          = "${local.environment_name}-ceph"
-#   operator_namespace    = "rook-ceph"
-#   cluster_namespace     = "rook-ceph"
-#   
-#   # Ceph configuration for stage environment
-#   mon_count            = 3
-#   mgr_count            = 2
-#   enable_dashboard     = true
-#   
-#   # Storage configuration
-#   enable_block_storage       = true
-#   block_storage_default      = true
-#   block_pool_replicated_size = 2  # Reduced for stage
-#   block_reclaim_policy       = "Delete"
-#   
-#   # Disable filesystem storage for stage (can enable if needed)
-#   enable_filesystem_storage = false
-#   
-#   # Use all available nodes and devices in stage
-#   use_all_nodes   = true
-#   use_all_devices = false  # Set to true if you want to use all devices
-#   
-#   # Resource limits for stage environment
-#   operator_resources = {
-#     limits = {
-#       memory = "256Mi"
-#     }
-#     requests = {
-#       cpu    = "100m"
-#       memory = "128Mi"
-#     }
-#   }
-#   
-#   cluster_resources = {
-#     mon = {
-#       limits = {
-#         cpu    = "1000m"
-#         memory = "1Gi"
-#       }
-#       requests = {
-#         cpu    = "100m"
-#         memory = "512Mi"
-#       }
-#     }
-#     mgr = {
-#       limits = {
-#         cpu    = "500m"
-#         memory = "512Mi"
-#       }
-#       requests = {
-#         cpu    = "100m"
-#         memory = "256Mi"
-#       }
-#     }
-#     osd = {
-#       limits = {
-#         cpu    = "1000m"
-#         memory = "2Gi"
-#       }
-#       requests = {
-#         cpu    = "100m"
-#         memory = "1Gi"
-#       }
-#     }
-#   }
-#   
-#   depends_on = [module.aks]
-# }
-
-# Example: MetalLB load balancer (disabled - deploy via GitOps instead)
-# MetalLB configuration can be found in the GitOps repository
-# This allows for declarative management and easy updates without Terraform
+# Create ApplicationSets separately after ensuring ArgoCD is fully deployed
+resource "null_resource" "argocd_ready_check" {
+  depends_on = [module.argocd]
+  
+  provisioner "local-exec" {
+    command = <<-EOT
+      # Wait for ArgoCD server to be ready
+      kubectl wait --for=condition=available --timeout=300s deployment/argocd-server -n argocd
+      kubectl wait --for=condition=available --timeout=300s deployment/argocd-application-controller -n argocd
+      kubectl wait --for=condition=available --timeout=300s deployment/argocd-repo-server -n argocd
+    EOT
+  }
+  
+  triggers = {
+    argocd_deployment = timestamp()
+  }
+}
