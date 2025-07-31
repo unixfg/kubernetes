@@ -197,7 +197,7 @@ module "argocd" {
   git_repo_url                = var.git_repo_url
   use_ssh_for_git             = var.use_ssh_for_git
   argocd_repo_ssh_secret_name = var.argocd_repo_ssh_secret_name
-  create_applicationset       = false  # Disable ApplicationSet creation initially
+  create_applicationset       = true
   
   depends_on = [
     module.aks, 
