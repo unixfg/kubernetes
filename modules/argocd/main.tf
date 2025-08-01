@@ -128,8 +128,9 @@ resource "kubernetes_manifest" "helm_app_discovery" {
             repoURL  = var.use_ssh_for_git ? replace(var.git_repo_url, "https://github.com/", "git@github.com:") : var.git_repo_url
             revision = var.git_revision
             files = [
+              # look only at helm dirs
               {
-                path = "gitops/apps/*/helm/${var.environment}/application.yaml"
+                path = "apps/*/helm/${var.environment}/application.yaml"
               }
             ]
           }
@@ -137,19 +138,24 @@ resource "kubernetes_manifest" "helm_app_discovery" {
       ]
       template = {
         metadata = {
-          # Use the same naming convention as Kustomize apps: <app>-<env>
-          name = "{{path[2]}}-${var.environment}"
+          # apps/<app>/helm/<env>/application.yaml  → path[1] = <app>
+          name = "{{path[1]}}-${var.environment}"
         }
         spec = {
           project = var.argocd_project
           source = {
-            repoURL        = var.use_ssh_for_git ? replace(var.git_repo_url, "https://github.com/", "git@github.com:") : var.git_repo_url
+            # use the directory that contains the file we matched
+            repoURL        = var.use_ssh_for_git ? replace(
+              var.git_repo_url,
+              "https://github.com/",
+              "git@github.com:"
+            ) : var.git_repo_url
             targetRevision = var.git_revision
-            path           = "{{path.directory}}"
+            path           = "{{path.dirname}}"
           }
           destination = {
             server    = "https://kubernetes.default.svc"
-            namespace = "{{path[2]}}"
+            namespace = "{{path[2]}}"                 # (= helm)
           }
           syncPolicy = var.sync_policy
         }
