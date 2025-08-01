@@ -80,7 +80,11 @@ resource "kubernetes_manifest" "app_discovery" {
           git = {
             repoURL     = var.use_ssh_for_git ? replace(var.git_repo_url, "https://github.com/", "git@github.com:") : var.git_repo_url
             revision    = var.git_revision
-            directories = var.app_discovery_directories
+            directories = [
+              {
+                path = "gitops/apps/*"
+              }
+            ]
           }
         }
       ]
@@ -120,19 +124,19 @@ resource "kubernetes_manifest" "helm_app_discovery" {
       namespace = kubernetes_namespace.argocd.metadata[0].name
     }
     spec = {
-      # Generator discovers Helm applications from Git repository files
       generators = [
         {
           git = {
             repoURL  = var.use_ssh_for_git ? replace(var.git_repo_url, "https://github.com/", "git@github.com:") : var.git_repo_url
             revision = var.git_revision
             files = [
-              { path = "gitops/apps/*/helm/${var.environment}/application.yaml" }
+              {
+                path = "gitops/apps/*/helm/${var.environment}/application.yaml"
+              }
             ]
           }
         }
       ]
-      # Template for creating ArgoCD applications for Helm apps
       template = {
         metadata = {
           name = "{{path[2]}}-${var.environment}-helm"
@@ -142,7 +146,7 @@ resource "kubernetes_manifest" "helm_app_discovery" {
           source = {
             repoURL        = var.use_ssh_for_git ? replace(var.git_repo_url, "https://github.com/", "git@github.com:") : var.git_repo_url
             targetRevision = var.git_revision
-            path           = "{{path.path}}"
+            path           = "{{path.directory}}"
           }
           destination = {
             server    = "https://kubernetes.default.svc"
