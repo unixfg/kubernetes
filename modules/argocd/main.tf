@@ -74,31 +74,33 @@ resource "kubernetes_manifest" "app_discovery" {
       namespace = kubernetes_namespace.argocd.metadata[0].name
     }
     spec = {
-      # Generator discovers Kustomize applications from Git repository directories
       generators = [
         {
           git = {
-            repoURL     = var.use_ssh_for_git ? replace(var.git_repo_url, "https://github.com/", "git@github.com:") : var.git_repo_url
-            revision    = var.git_revision
-            directories = var.app_discovery_directories
+            repoURL  = var.use_ssh_for_git ? replace(var.git_repo_url, "https://github.com/", "git@github.com:") : var.git_repo_url
+            revision = var.git_revision
+            directories = [
+              # look only at overlay dirs
+              { path = "apps/*/overlays/${var.environment}" }
+            ]
           }
         }
       ]
-      # Template for creating ArgoCD applications for Kustomize apps
       template = {
         metadata = {
-          name = "{{path.basename}}-${var.environment}"
+          # path[1] = <app-name> because path is apps/<app>/overlays/<env>
+          name = "{{path[1]}}-${var.environment}"
         }
         spec = {
           project = var.argocd_project
           source = {
-            repoURL        = var.use_ssh_for_git ? replace(var.git_repo_url, "https://github.com/", "git@github.com:") : var.git_repo_url
+            repoURL        = var.git_repo_url
             targetRevision = var.git_revision
-            path           = "{{path}}/overlays/${var.environment}"
+            path           = "{{path}}"
           }
           destination = {
             server    = "https://kubernetes.default.svc"
-            namespace = "{{path.basename}}"
+            namespace = "{{path[1]}}"
           }
           syncPolicy = var.sync_policy
         }
@@ -135,7 +137,8 @@ resource "kubernetes_manifest" "helm_app_discovery" {
       ]
       template = {
         metadata = {
-          name = "{{path[2]}}-${var.environment}-helm"
+          # Use the same naming convention as Kustomize apps: <app>-<env>
+          name = "{{path[2]}}-${var.environment}"
         }
         spec = {
           project = var.argocd_project
