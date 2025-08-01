@@ -152,5 +152,5 @@ resource "kubernetes_config_map" "sops_workload_identity" {
 
 # Add the local for azure_key_url if not already present
 locals {
-  azure_key_url = "${azurerm_key_vault.sops.vault_uri}keys/${azurerm_key_vault_key.sops.name}/${azurerm_key_vault_key.sops.version}"
+  azure_key_url = "${azurerm_key_vault.sops.vault_uri}keys/${azurerm_key_vault_key.sops.name}"
 }

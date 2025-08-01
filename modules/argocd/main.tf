@@ -80,11 +80,7 @@ resource "kubernetes_manifest" "app_discovery" {
           git = {
             repoURL     = var.use_ssh_for_git ? replace(var.git_repo_url, "https://github.com/", "git@github.com:") : var.git_repo_url
             revision    = var.git_revision
-            directories = [
-              {
-                path = "gitops/apps/*"
-              }
-            ]
+            directories = var.app_discovery_directories
           }
         }
       ]
