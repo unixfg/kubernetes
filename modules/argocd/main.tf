@@ -109,7 +109,8 @@ resource "kubernetes_manifest" "app_discovery" {
   }
 }
 
-# ArgoCD ApplicationSet for automatic Helm application discovery and deployment
+# ArgoCD ApplicationSet for Helm applications stored as Application manifests
+# This discovers Application manifests and creates ArgoCD Applications from their contents.
 resource "kubernetes_manifest" "helm_app_discovery" {
   count      = var.create_applicationset ? 1 : 0
   depends_on = [time_sleep.wait_for_argocd, kubernetes_secret.argocd_repo_ssh]
@@ -128,7 +129,6 @@ resource "kubernetes_manifest" "helm_app_discovery" {
             repoURL  = var.use_ssh_for_git ? replace(var.git_repo_url, "https://github.com/", "git@github.com:") : var.git_repo_url
             revision = var.git_revision
             files = [
-              # look only at helm dirs
               {
                 path = "apps/*/helm/${var.environment}/application.yaml"
               }
@@ -138,24 +138,22 @@ resource "kubernetes_manifest" "helm_app_discovery" {
       ]
       template = {
         metadata = {
-          # apps/<app>/helm/<env>/application.yaml  → path[1] = <app>
-          name = "{{path[1]}}-${var.environment}"
+          # Name the ArgoCD app from the application.yaml's metadata.name
+          name = "{{.metadata.name}}"
         }
         spec = {
-          project = var.argocd_project
+          project = "{{.spec.project}}"
           source = {
-            # use the directory that contains the file we matched
-            repoURL        = var.use_ssh_for_git ? replace(
-              var.git_repo_url,
-              "https://github.com/",
-              "git@github.com:"
-            ) : var.git_repo_url
-            targetRevision = var.git_revision
-            path           = "{{path.dirname}}"
+            repoURL        = "{{.spec.source.repoURL}}"
+            chart          = "{{.spec.source.chart}}"
+            targetRevision = "{{.spec.source.targetRevision}}"
+            helm = {
+              values = "{{.spec.source.helm.values}}"
+            }
           }
           destination = {
-            server    = "https://kubernetes.default.svc"
-            namespace = "{{path[2]}}"                 # (= helm)
+            server    = "{{.spec.destination.server}}"
+            namespace = "{{.spec.destination.namespace}}"
           }
           syncPolicy = var.sync_policy
         }
