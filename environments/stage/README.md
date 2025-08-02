@@ -5,13 +5,28 @@ This directory contains the Terraform configuration for the environment, includi
 - ArgoCD for GitOps
 - Automated application deployment via GitOps
 
-## Quick Start
+## Two-Stage Deployment
 
-### Deploy Infrastructure
+Due to Terraform provider initialization requirements, this configuration uses a two-stage deployment approach:
+
+### Stage 1: Infrastructure Deployment
+Deploy the AKS cluster and core infrastructure first:
+
 ```bash
+# Deploy cluster, namespaces, and ArgoCD (without ApplicationSets)
 terraform plan
 terraform apply
 ```
+
+### Stage 2: Enable ApplicationSets
+After the cluster is running and ArgoCD is deployed, enable automatic application discovery:
+
+```bash
+# Enable ApplicationSets for automatic app discovery
+terraform apply -var="enable_applicationsets=true"
+```
+
+Alternatively, you can set `enable_applicationsets = true` in your `terraform.tfvars` file after the initial deployment.
 
 ### Check Status
 ```bash

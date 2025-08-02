@@ -89,7 +89,7 @@ module "akv_sops" {
   source = "../../modules/akv-sops"
   
   # Azure Key Vault configuration
-  key_vault_name      = "kv-sops-${module.aks.random_suffix}"
+  key_vault_name      = "kv${substr(replace(module.aks.random_suffix, "-", ""), 0, 20)}"
   location            = module.aks.resource_group_location
   resource_group_name = module.aks.resource_group_name
   key_name            = "sops-${local.environment_name}"
@@ -189,7 +189,8 @@ resource "null_resource" "wait_for_cluster" {
 }
 
 # Deploy ArgoCD GitOps Controller using reusable module
-# ArgoCD will automatically discover and deploy applications from the GitOps repository
+# Note: ApplicationSets are disabled for initial deployment to avoid provider initialization issues
+# Use two-stage deployment approach (see README for instructions)
 module "argocd" {
   source = "../../modules/argocd"
   
@@ -197,7 +198,7 @@ module "argocd" {
   git_repo_url                = var.git_repo_url
   use_ssh_for_git             = var.use_ssh_for_git
   argocd_repo_ssh_secret_name = var.argocd_repo_ssh_secret_name
-  create_applicationset       = true
+  create_applicationset       = var.enable_applicationsets
   
   depends_on = [
     module.aks, 
@@ -205,22 +206,4 @@ module "argocd" {
     null_resource.setup_kubeconfig,
     null_resource.wait_for_cluster
   ]
-}
-
-# Create ApplicationSets separately after ensuring ArgoCD is fully deployed
-resource "null_resource" "argocd_ready_check" {
-  depends_on = [module.argocd]
-  
-  provisioner "local-exec" {
-    command = <<-EOT
-      # Wait for ArgoCD server to be ready
-      kubectl wait --for=condition=available --timeout=300s deployment/argocd-server -n argocd
-      kubectl wait --for=condition=available --timeout=300s deployment/argocd-application-controller -n argocd
-      kubectl wait --for=condition=available --timeout=300s deployment/argocd-repo-server -n argocd
-    EOT
-  }
-  
-  triggers = {
-    argocd_deployment = timestamp()
-  }
 }

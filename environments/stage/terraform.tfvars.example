@@ -12,3 +12,7 @@ vm_size = "Standard_B2s"                # Azure VM size for cluster nodes
 # GitOps Repository Configuration
 # Repository containing your application manifests and configurations
 git_repo_url = "https://github.com/unixfg/kubernetes.git"
+
+# Two-Stage Deployment Configuration
+# Set to false for initial deployment, then true to enable ApplicationSets
+enable_applicationsets = false

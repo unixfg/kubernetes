@@ -47,3 +47,9 @@ variable "argocd_repo_ssh_secret_name" {
   type        = string
   default     = "argocd-repo-ssh"
 }
+
+variable "enable_applicationsets" {
+  description = "Whether to enable ApplicationSets for automatic app discovery. Set to false for initial cluster deployment."
+  type        = bool
+  default     = false
+}
