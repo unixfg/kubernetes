@@ -146,7 +146,7 @@ module "akv_sops" {
 
 ## Integration with sops-secrets-operator
 
-This module creates a ConfigMap named `sops-workload-identity` in the `sops-secrets-operator-system` namespace containing:
+This module creates a ConfigMap named `sops-workload-identity` in the `sops-secrets-operator` namespace containing:
 - `client_id`: Azure AD application client ID
 - `tenant_id`: Azure tenant ID
 - `key_vault_url`: Full URL for SOPS encryption
@@ -161,7 +161,7 @@ After deploying this module, you can encrypt secrets using:
 
 ```bash
 # Get the Key Vault URL
-export SOPS_AZURE_KV=$(kubectl get configmap -n sops-secrets-operator-system sops-workload-identity -o jsonpath='{.data.key_vault_url}')
+export SOPS_AZURE_KV=$(kubectl get configmap -n sops-secrets-operator sops-workload-identity -o jsonpath='{.data.key_vault_url}')
 
 # Encrypt a secret
 sops -e --azure-kv "$SOPS_AZURE_KV" secret.yaml > secret.enc.yaml

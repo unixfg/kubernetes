@@ -72,9 +72,9 @@ resource "kubernetes_namespace" "sops_secrets_operator" {
   ]
   
   metadata {
-    name = "sops-secrets-operator-system"
+    name = "sops-secrets-operator"
     labels = {
-      "name" = "sops-secrets-operator-system"
+      "name" = "sops-secrets-operator"
       "app.kubernetes.io/managed-by" = "terraform"
     }
   }
@@ -110,7 +110,7 @@ module "akv_sops" {
   workload_identity_name        = "sops-secrets-operator-${local.environment_name}"
   workload_identity_description = "Kubernetes service account for sops-secrets-operator"
   oidc_issuer_url              = module.aks.cluster_oidc_issuer_url
-  workload_identity_subject    = "system:serviceaccount:sops-secrets-operator-system:sops-secrets-operator"
+  workload_identity_subject    = "system:serviceaccount:sops-secrets-operator:sops-secrets-operator"
   
   environment = local.environment_name
   

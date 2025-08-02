@@ -82,5 +82,5 @@ variable "oidc_issuer_url" {
 variable "workload_identity_subject" {
   description = "Subject for federated identity (Kubernetes service account)"
   type        = string
-  default     = "system:serviceaccount:sops-secrets-operator-system:sops-secrets-operator"
+  default     = "system:serviceaccount:sops-secrets-operator:sops-secrets-operator"
 }

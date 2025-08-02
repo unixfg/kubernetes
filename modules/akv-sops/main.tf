@@ -127,7 +127,7 @@ resource "kubernetes_config_map" "sops_workload_identity" {
 
   metadata {
     name      = "sops-workload-identity"
-    namespace = "sops-secrets-operator-system"  # Same namespace as the operator
+    namespace = "sops-secrets-operator"  # Same namespace as the operator
     labels = {
       "app.kubernetes.io/managed-by" = "terraform"
       "app.kubernetes.io/component"  = "akv-sops"
