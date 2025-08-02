@@ -138,11 +138,11 @@ resource "kubernetes_manifest" "helm_app_discovery" {
       ]
       template = {
         metadata = {
-          # Name the ArgoCD app from the application.yaml's metadata.name
-          name = "{{.metadata.name}}"
+          # Extract app name from path: apps/<app>/helm/<env>/application.yaml → path[1] = <app>
+          name = "{{path[1]}}-${var.environment}"
         }
         spec = {
-          project = "{{.spec.project}}"
+          project = var.argocd_project
           source = {
             repoURL        = "{{.spec.source.repoURL}}"
             chart          = "{{.spec.source.chart}}"
@@ -152,8 +152,8 @@ resource "kubernetes_manifest" "helm_app_discovery" {
             }
           }
           destination = {
-            server    = "{{.spec.destination.server}}"
-            namespace = "{{.spec.destination.namespace}}"
+            server    = "https://kubernetes.default.svc"
+            namespace = "{{path[1]}}"
           }
           syncPolicy = var.sync_policy
         }
