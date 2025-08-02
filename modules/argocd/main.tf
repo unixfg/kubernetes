@@ -94,7 +94,7 @@ resource "kubernetes_manifest" "app_discovery" {
         spec = {
           project = var.argocd_project
           source = {
-            repoURL        = var.git_repo_url
+            repoURL        = var.use_ssh_for_git ? replace(var.git_repo_url, "https://github.com/", "git@github.com:") : var.git_repo_url
             targetRevision = var.git_revision
             path           = "{{path}}"
           }
