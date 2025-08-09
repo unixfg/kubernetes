@@ -1,0 +1,7 @@
+# Example vars for 2-argocd
+
+environment = "stage"
+# git_repo_url = "https://github.com/unixfg/gitops.git"
+# use_ssh_for_git = true
+# argocd_repo_ssh_secret_name = "argocd-repo-ssh"
+# enable_applicationsets = false

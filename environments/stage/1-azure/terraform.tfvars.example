@@ -1,0 +1,6 @@
+# Example vars for 1-azure
+
+environment = "stage"
+resource_group_location = "eastus"
+node_count = 2
+vm_size = "Standard_B2s"
