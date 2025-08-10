@@ -63,18 +63,14 @@ module "aks" {
 
 # Configure providers to talk to the cluster created above
 provider "kubernetes" {
-  host                   = length(module.aks.cluster_host) > 0 ? module.aks.cluster_host : null
-  client_certificate     = length(module.aks.cluster_client_certificate) > 0 ? base64decode(module.aks.cluster_client_certificate) : null
-  client_key             = length(module.aks.cluster_client_key) > 0 ? base64decode(module.aks.cluster_client_key) : null
-  cluster_ca_certificate = length(module.aks.cluster_ca_certificate) > 0 ? base64decode(module.aks.cluster_ca_certificate) : null
+  config_path    = pathexpand("~/.kube/config")
+  config_context = module.aks.cluster_name
 }
 
 provider "helm" {
   kubernetes {
-    host                   = length(module.aks.cluster_host) > 0 ? module.aks.cluster_host : null
-    client_certificate     = length(module.aks.cluster_client_certificate) > 0 ? base64decode(module.aks.cluster_client_certificate) : null
-    client_key             = length(module.aks.cluster_client_key) > 0 ? base64decode(module.aks.cluster_client_key) : null
-    cluster_ca_certificate = length(module.aks.cluster_ca_certificate) > 0 ? base64decode(module.aks.cluster_ca_certificate) : null
+    config_path    = pathexpand("~/.kube/config")
+    config_context = module.aks.cluster_name
   }
 }
 
