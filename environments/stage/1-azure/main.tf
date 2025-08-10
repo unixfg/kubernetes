@@ -83,7 +83,21 @@ resource "null_resource" "setup_kubeconfig" {
   depends_on = [module.aks]
 
   provisioner "local-exec" {
-    command = "az aks get-credentials --resource-group ${module.aks.resource_group_name} --name ${module.aks.cluster_name} --file $HOME/.kube/config --overwrite-existing"
+    command = <<-EOT
+      set -euo pipefail
+      echo "Fetching AKS credentials with retries..."
+      for i in $(seq 1 5); do
+        if timeout 20 az aks get-credentials --resource-group ${module.aks.resource_group_name} --name ${module.aks.cluster_name} --file $HOME/.kube/config --overwrite-existing; then
+          echo "Credentials fetched."
+          exit 0
+        fi
+        echo "Attempt $i/5 failed. Retrying in $((i*2))s..."
+        sleep $((i*2))
+      done
+      echo "Failed to fetch AKS credentials after retries" >&2
+      exit 1
+    EOT
+    interpreter = ["bash", "-c"]
   }
 
   triggers = {
@@ -99,9 +113,9 @@ resource "null_resource" "wait_for_cluster" {
     command = <<-EOT
       echo "Waiting for cluster to be ready..."
       for i in {1..30}; do
-        if kubectl cluster-info --request-timeout=10s 2>/dev/null; then
+        if timeout 10 kubectl cluster-info --request-timeout=10s 2>/dev/null; then
           echo "Cluster is ready! Checking nodes..."
-          kubectl get nodes --request-timeout=10s || true
+          timeout 10 kubectl get nodes --request-timeout=10s || true
           echo "Cluster validation complete!"
           exit 0
         fi
