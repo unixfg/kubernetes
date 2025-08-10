@@ -80,16 +80,16 @@ resource "kubernetes_manifest" "app_discovery" {
             repoURL  = var.use_ssh_for_git ? replace(var.git_repo_url, "https://github.com/", "git@github.com:") : var.git_repo_url
             revision = var.git_revision
             directories = [
-              # look only at overlay dirs within repo's gitops tree
-              { path = "gitops/apps/*/overlays/${var.environment}" }
+              # look only at overlay dirs within repo's apps tree
+              { path = "apps/*/overlays/${var.environment}" }
             ]
           }
         }
       ]
       template = {
         metadata = {
-          # path now is gitops/apps/<app>/overlays/<env>; so path[2] = <app-name>
-          name = "{{path[2]}}-${var.environment}"
+          # path now is apps/<app>/overlays/<env>; so path[1] = <app-name>
+          name = "{{path[1]}}-${var.environment}"
         }
         spec = {
           project = var.argocd_project
@@ -100,7 +100,7 @@ resource "kubernetes_manifest" "app_discovery" {
           }
           destination = {
             server    = "https://kubernetes.default.svc"
-            namespace = "{{path[2]}}"
+            namespace = "{{path[1]}}"
           }
           # Ignore SopsSecret controller-mutated fields to avoid perpetual drift
           ignoreDifferences = [
@@ -140,7 +140,7 @@ resource "kubernetes_manifest" "helm_app_discovery" {
             revision = var.git_revision
             files = [
               {
-                path = "gitops/apps/*/helm/${var.environment}/application.yaml"
+                path = "apps/*/helm/${var.environment}/application.yaml"
               }
             ]
           }
@@ -148,8 +148,8 @@ resource "kubernetes_manifest" "helm_app_discovery" {
       ]
       template = {
         metadata = {
-          # Extract app name from path: gitops/apps/<app>/helm/<env>/application.yaml → path[2] = <app>
-          name = "{{path[2]}}-${var.environment}"
+          # Extract app name from path: apps/<app>/helm/<env>/application.yaml → path[1] = <app>
+          name = "{{path[1]}}-${var.environment}"
         }
         spec = {
           project = var.argocd_project
@@ -163,7 +163,7 @@ resource "kubernetes_manifest" "helm_app_discovery" {
           }
           destination = {
             server    = "https://kubernetes.default.svc"
-            namespace = "{{path[2]}}"
+            namespace = "{{path[1]}}"
           }
           # Ignore SopsSecret controller-mutated fields to avoid perpetual drift (in case any Helm apps include them)
           ignoreDifferences = [
