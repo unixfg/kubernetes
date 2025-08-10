@@ -83,7 +83,7 @@ resource "null_resource" "setup_kubeconfig" {
   depends_on = [module.aks]
 
   provisioner "local-exec" {
-    command = "az aks get-credentials --resource-group ${module.aks.resource_group_name} --name ${module.aks.cluster_name} --overwrite-existing"
+    command = "az aks get-credentials --resource-group ${module.aks.resource_group_name} --name ${module.aks.cluster_name} --file $HOME/.kube/config --overwrite-existing"
   }
 
   triggers = {

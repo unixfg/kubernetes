@@ -87,7 +87,7 @@ kubectl port-forward svc/argocd-server -n argocd 8080:80
 
 - **URL**: http://localhost:8080
 - **Username**: `admin`
-- **Password**: Get with `kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d`
+- **Password**: Get with `kubectl -n argocd get secret argocd-initial-admin-secret -o go-template='{{printf "%s\n" (.data.password|base64decode)}}`
 
 ## Environment Specifications
 

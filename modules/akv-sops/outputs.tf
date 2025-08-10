@@ -40,17 +40,17 @@ output "sops_azure_kv_url" {
 # Workload Identity outputs
 output "workload_identity_client_id" {
   description = "Azure AD application client ID for workload identity"
-  value       = var.create_workload_identity ? azuread_application.workload_identity[0].client_id : ""
+  value       = var.create_workload_identity && length(azuread_application.workload_identity) > 0 ? azuread_application.workload_identity[0].client_id : ""
 }
 
 output "service_principal_object_id" {
   description = "Object ID of the service principal for workload identity"
-  value       = var.create_workload_identity ? azuread_service_principal.workload_identity[0].object_id : ""
+  value       = var.create_workload_identity && length(azuread_service_principal.workload_identity) > 0 ? azuread_service_principal.workload_identity[0].object_id : ""
 }
 
 output "workload_identity_configuration" {
   description = "Configuration values for GitOps workload identity setup"
-  value = var.create_workload_identity ? {
+  value = var.create_workload_identity && length(azuread_application.workload_identity) > 0 ? {
     client_id    = azuread_application.workload_identity[0].client_id
     tenant_id    = data.azurerm_client_config.current.tenant_id
     instructions = <<-EOT
