@@ -49,7 +49,7 @@ output "useful_commands" {
   value = {
     setup_kubectl        = data.terraform_remote_state.azure.outputs.cluster_credentials_command
     access_argocd        = module.argocd.argocd_port_forward_command
-    get_argocd_password  = "kubectl -n argocd get secret argocd-initial-admin-secret -o go-template='{{printf "%s\n" (.data.password|base64decode)}}'"
+    get_argocd_password  = "kubectl -n argocd get secret argocd-initial-admin-secret -o go-template='{{printf \"%s\\n\" (.data.password|base64decode)}}'"
     check_applications   = "kubectl get applications -n ${module.argocd.argocd_namespace}"
     view_ssh_key         = "terraform output -raw argocd_repo_public_key"
     argocd_web_url       = "http://localhost:8080 (after port-forward)"
