@@ -30,18 +30,14 @@ data "terraform_remote_state" "azure" {
 
 # Configure providers with cluster details from 1-azure
 provider "kubernetes" {
-  host                   = data.terraform_remote_state.azure.outputs.cluster_host
-  client_certificate     = base64decode(data.terraform_remote_state.azure.outputs.cluster_client_certificate)
-  client_key             = base64decode(data.terraform_remote_state.azure.outputs.cluster_client_key)
-  cluster_ca_certificate = base64decode(data.terraform_remote_state.azure.outputs.cluster_ca_certificate)
+  config_path    = pathexpand("~/.kube/config")
+  config_context = data.terraform_remote_state.azure.outputs.cluster_name
 }
 
 provider "helm" {
   kubernetes {
-    host                   = data.terraform_remote_state.azure.outputs.cluster_host
-    client_certificate     = base64decode(data.terraform_remote_state.azure.outputs.cluster_client_certificate)
-    client_key             = base64decode(data.terraform_remote_state.azure.outputs.cluster_client_key)
-    cluster_ca_certificate = base64decode(data.terraform_remote_state.azure.outputs.cluster_ca_certificate)
+    config_path    = pathexpand("~/.kube/config")
+    config_context = data.terraform_remote_state.azure.outputs.cluster_name
   }
 }
 
