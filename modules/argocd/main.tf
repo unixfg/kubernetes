@@ -66,11 +66,6 @@ resource "kubernetes_manifest" "app_discovery" {
   count      = var.create_applicationset ? 1 : 0
   depends_on = [time_sleep.wait_for_argocd, kubernetes_secret.argocd_repo_ssh]
 
-  field_manager {
-    name            = "terraform"
-    force_conflicts = true
-  }
-
   manifest = {
     apiVersion = "argoproj.io/v1alpha1"
     kind       = "ApplicationSet"
@@ -85,7 +80,7 @@ resource "kubernetes_manifest" "app_discovery" {
             repoURL  = var.use_ssh_for_git ? replace(var.git_repo_url, "https://github.com/", "git@github.com:") : var.git_repo_url
             revision = var.git_revision
             directories = [
-              # look only at overlay dirs within repo's apps tree
+              # look only at overlay dirs within repo's gitops tree
               { path = "gitops/apps/*/overlays/${var.environment}" }
             ]
           }
@@ -130,11 +125,6 @@ resource "kubernetes_manifest" "helm_app_discovery" {
   count      = var.create_applicationset ? 1 : 0
   depends_on = [time_sleep.wait_for_argocd, kubernetes_secret.argocd_repo_ssh]
 
-  field_manager {
-    name            = "terraform"
-    force_conflicts = true
-  }
-
   manifest = {
     apiVersion = "argoproj.io/v1alpha1"
     kind       = "ApplicationSet"
@@ -143,8 +133,6 @@ resource "kubernetes_manifest" "helm_app_discovery" {
       namespace = kubernetes_namespace.argocd.metadata[0].name
     }
     spec = {
-      # Enable Go templating so we can index into arrays from the referenced files
-      goTemplate = true
       generators = [
         {
           git = {
@@ -152,7 +140,6 @@ resource "kubernetes_manifest" "helm_app_discovery" {
             revision = var.git_revision
             files = [
               {
-                # Our repo keeps apps under gitops/, so include that prefix
                 path = "gitops/apps/*/helm/${var.environment}/application.yaml"
               }
             ]
@@ -161,31 +148,22 @@ resource "kubernetes_manifest" "helm_app_discovery" {
       ]
       template = {
         metadata = {
-          # Path is gitops/apps/<app>/helm/<env>/application.yaml → path[2] = <app>
+          # Extract app name from path: gitops/apps/<app>/helm/<env>/application.yaml → path[2] = <app>
           name = "{{path[2]}}-${var.environment}"
         }
         spec = {
           project = var.argocd_project
-          # The referenced files use multi-source Applications (spec.sources[])
-          sources = [
-            {
-              repoURL        = "{{ (index .spec.sources 0).repoURL }}"
-              chart          = "{{ (index .spec.sources 0).chart }}"
-              targetRevision = "{{ (index .spec.sources 0).targetRevision }}"
-              helm = {
-                values = "{{ (index .spec.sources 0).helm.values }}"
-              }
-            },
-            {
-              repoURL        = "{{ (index .spec.sources 1).repoURL }}"
-              path           = "{{ (index .spec.sources 1).path }}"
-              targetRevision = "{{ (index .spec.sources 1).targetRevision }}"
+          source = {
+            repoURL        = "{{.spec.source.repoURL}}"
+            chart          = "{{.spec.source.chart}}"
+            targetRevision = "{{.spec.source.targetRevision}}"
+            helm = {
+              values = "{{.spec.source.helm.values}}"
             }
-          ]
+          }
           destination = {
             server    = "https://kubernetes.default.svc"
-            # Respect the namespace declared in the file (e.g., metallb-system)
-            namespace = "{{ .spec.destination.namespace }}"
+            namespace = "{{path[2]}}"
           }
           # Ignore SopsSecret controller-mutated fields to avoid perpetual drift (in case any Helm apps include them)
           ignoreDifferences = [
