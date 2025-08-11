@@ -66,6 +66,11 @@ resource "kubernetes_manifest" "app_discovery" {
   count      = var.create_applicationset ? 1 : 0
   depends_on = [time_sleep.wait_for_argocd, kubernetes_secret.argocd_repo_ssh]
 
+  field_manager {
+    name            = "terraform"
+    force_conflicts = true
+  }
+
   manifest = {
     apiVersion = "argoproj.io/v1alpha1"
     kind       = "ApplicationSet"
@@ -81,15 +86,15 @@ resource "kubernetes_manifest" "app_discovery" {
             revision = var.git_revision
             directories = [
               # look only at overlay dirs within repo's apps tree
-              { path = "apps/*/overlays/${var.environment}" }
+              { path = "gitops/apps/*/overlays/${var.environment}" }
             ]
           }
         }
       ]
       template = {
         metadata = {
-          # path now is apps/<app>/overlays/<env>; so path[1] = <app-name>
-          name = "{{path[1]}}-${var.environment}"
+          # path now is gitops/apps/<app>/overlays/<env>; so path[2] = <app-name>
+          name = "{{path[2]}}-${var.environment}"
         }
         spec = {
           project = var.argocd_project
@@ -100,7 +105,7 @@ resource "kubernetes_manifest" "app_discovery" {
           }
           destination = {
             server    = "https://kubernetes.default.svc"
-            namespace = "{{path[1]}}"
+            namespace = "{{path[2]}}"
           }
           # Ignore SopsSecret controller-mutated fields to avoid perpetual drift
           ignoreDifferences = [
@@ -125,6 +130,11 @@ resource "kubernetes_manifest" "helm_app_discovery" {
   count      = var.create_applicationset ? 1 : 0
   depends_on = [time_sleep.wait_for_argocd, kubernetes_secret.argocd_repo_ssh]
 
+  field_manager {
+    name            = "terraform"
+    force_conflicts = true
+  }
+
   manifest = {
     apiVersion = "argoproj.io/v1alpha1"
     kind       = "ApplicationSet"
@@ -133,6 +143,8 @@ resource "kubernetes_manifest" "helm_app_discovery" {
       namespace = kubernetes_namespace.argocd.metadata[0].name
     }
     spec = {
+      # Enable Go templating so we can index into arrays from the referenced files
+      goTemplate = true
       generators = [
         {
           git = {
@@ -140,7 +152,8 @@ resource "kubernetes_manifest" "helm_app_discovery" {
             revision = var.git_revision
             files = [
               {
-                path = "apps/*/helm/${var.environment}/application.yaml"
+                # Our repo keeps apps under gitops/, so include that prefix
+                path = "gitops/apps/*/helm/${var.environment}/application.yaml"
               }
             ]
           }
@@ -148,22 +161,31 @@ resource "kubernetes_manifest" "helm_app_discovery" {
       ]
       template = {
         metadata = {
-          # Extract app name from path: apps/<app>/helm/<env>/application.yaml → path[1] = <app>
-          name = "{{path[1]}}-${var.environment}"
+          # Path is gitops/apps/<app>/helm/<env>/application.yaml → path[2] = <app>
+          name = "{{path[2]}}-${var.environment}"
         }
         spec = {
           project = var.argocd_project
-          source = {
-            repoURL        = "{{.spec.source.repoURL}}"
-            chart          = "{{.spec.source.chart}}"
-            targetRevision = "{{.spec.source.targetRevision}}"
-            helm = {
-              values = "{{.spec.source.helm.values}}"
+          # The referenced files use multi-source Applications (spec.sources[])
+          sources = [
+            {
+              repoURL        = "{{ (index .spec.sources 0).repoURL }}"
+              chart          = "{{ (index .spec.sources 0).chart }}"
+              targetRevision = "{{ (index .spec.sources 0).targetRevision }}"
+              helm = {
+                values = "{{ (index .spec.sources 0).helm.values }}"
+              }
+            },
+            {
+              repoURL        = "{{ (index .spec.sources 1).repoURL }}"
+              path           = "{{ (index .spec.sources 1).path }}"
+              targetRevision = "{{ (index .spec.sources 1).targetRevision }}"
             }
-          }
+          ]
           destination = {
             server    = "https://kubernetes.default.svc"
-            namespace = "{{path[1]}}"
+            # Respect the namespace declared in the file (e.g., metallb-system)
+            namespace = "{{ .spec.destination.namespace }}"
           }
           # Ignore SopsSecret controller-mutated fields to avoid perpetual drift (in case any Helm apps include them)
           ignoreDifferences = [
