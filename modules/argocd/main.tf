@@ -61,10 +61,23 @@ resource "time_sleep" "wait_for_argocd" {
   create_duration = "30s"
 }
 
+# Local variable for field_manager block to ensure consistency
+locals {
+  argocd_field_manager = {
+    name            = "terraform"
+    force_conflicts = true
+  }
+}
+
 # ArgoCD ApplicationSet for automatic Kustomize application discovery and deployment
 resource "kubernetes_manifest" "app_discovery" {
   count      = var.create_applicationset ? 1 : 0
   depends_on = [time_sleep.wait_for_argocd, kubernetes_secret.argocd_repo_ssh]
+
+  field_manager {
+    name            = "terraform"
+    force_conflicts = true
+  }
 
   manifest = {
     apiVersion = "argoproj.io/v1alpha1"
@@ -74,13 +87,15 @@ resource "kubernetes_manifest" "app_discovery" {
       namespace = kubernetes_namespace.argocd.metadata[0].name
     }
     spec = {
+      goTemplate = true
       generators = [
         {
           git = {
             repoURL  = var.use_ssh_for_git ? replace(var.git_repo_url, "https://github.com/", "git@github.com:") : var.git_repo_url
             revision = var.git_revision
             directories = [
-              # look only at overlay dirs within repo's gitops tree
+              # Match with or without optional leading 'gitops/' by using two patterns
+              { path = "apps/*/overlays/${var.environment}" },
               { path = "gitops/apps/*/overlays/${var.environment}" }
             ]
           }
@@ -88,21 +103,21 @@ resource "kubernetes_manifest" "app_discovery" {
       ]
       template = {
         metadata = {
-          # path now is gitops/apps/<app>/overlays/<env>; so path[2] = <app-name>
-          name = "{{path[2]}}-${var.environment}"
+          # App dir is 3rd from end (…/<app>/overlays/<env>)
+          name = "{{ $s := split \"/\" .path }}{{ index $s (sub (len $s) 3) }}-${var.environment}"
         }
+        spec = {
         spec = {
           project = var.argocd_project
           source = {
             repoURL        = var.use_ssh_for_git ? replace(var.git_repo_url, "https://github.com/", "git@github.com:") : var.git_repo_url
             targetRevision = var.git_revision
-            path           = "{{path}}"
+            path           = "{{ .path }}"
           }
           destination = {
             server    = "https://kubernetes.default.svc"
-            namespace = "{{path[2]}}"
+            namespace = "{{ $s := split \"/\" .path }}{{ index $s (sub (len $s) 3) }}"
           }
-          # Ignore SopsSecret controller-mutated fields to avoid perpetual drift
           ignoreDifferences = [
             {
               group = "isindir.github.com"
@@ -114,7 +129,6 @@ resource "kubernetes_manifest" "app_discovery" {
           ]
           syncPolicy = var.sync_policy
         }
-      }
     }
   }
 }
@@ -125,6 +139,11 @@ resource "kubernetes_manifest" "helm_app_discovery" {
   count      = var.create_applicationset ? 1 : 0
   depends_on = [time_sleep.wait_for_argocd, kubernetes_secret.argocd_repo_ssh]
 
+  field_manager {
+    name            = "terraform"
+    force_conflicts = true
+  }
+
   manifest = {
     apiVersion = "argoproj.io/v1alpha1"
     kind       = "ApplicationSet"
@@ -133,51 +152,63 @@ resource "kubernetes_manifest" "helm_app_discovery" {
       namespace = kubernetes_namespace.argocd.metadata[0].name
     }
     spec = {
+      goTemplate = true
       generators = [
         {
           git = {
             repoURL  = var.use_ssh_for_git ? replace(var.git_repo_url, "https://github.com/", "git@github.com:") : var.git_repo_url
             revision = var.git_revision
             files = [
-              {
-                path = "gitops/apps/*/helm/${var.environment}/application.yaml"
-              }
+              { path = "apps/*/helm/${var.environment}/application.yaml" },
+              { path = "gitops/apps/*/helm/${var.environment}/application.yaml" }
             ]
           }
         }
       ]
       template = {
         metadata = {
-          # Extract app name from path: gitops/apps/<app>/helm/<env>/application.yaml → path[2] = <app>
-          name = "{{path[2]}}-${var.environment}"
+          # Extract app name: directory is 4th from end (…/<app>/helm/<env>/application.yaml)
+          name = "{{ $s := split \"/\" .path }}{{ index $s (sub (len $s) 4) }}-${var.environment}"
         }
         spec = {
-          project = var.argocd_project
-          source = {
-            repoURL        = "{{.spec.source.repoURL}}"
-            chart          = "{{.spec.source.chart}}"
-            targetRevision = "{{.spec.source.targetRevision}}"
-            helm = {
-              values = "{{.spec.source.helm.values}}"
+          spec = {
+            project = var.argocd_project
+            # The following uses Go template expressions to extract values from .spec.sources array in the discovered Application manifest.
+            # This is necessary because ApplicationSet templates do not natively merge nested fields; see ArgoCD docs for details.
+            # Example: "{{ (index .spec.sources 0).repoURL }}" extracts the repoURL from the first source in the sources array.
+            sources = [
+              {
+                repoURL        = "{{ (index .spec.sources 0).repoURL }}"
+                chart          = "{{ (index .spec.sources 0).chart }}"
+                targetRevision = "{{ (index .spec.sources 0).targetRevision }}"
+                helm = {
+                  values = "{{ (index .spec.sources 0).helm.values }}"
+                }
+              },
+              {
+                repoURL        = "{{ (index .spec.sources 1).repoURL }}"
+                path           = "{{ (index .spec.sources 1).path }}"
+                targetRevision = "{{ (index .spec.sources 1).targetRevision }}"
+              }
+            ]
+            destination = {
+              server    = "https://kubernetes.default.svc"
+              namespace = "{{ .spec.destination.namespace }}"
             }
+            ignoreDifferences = [
+              {
+                group = "isindir.github.com"
+                kind  = "SopsSecret"
+                jqPathExpressions = [
+                  ".spec.secretTemplates[].namespace"
+                ]
+              }
+            ]
+            syncPolicy = var.sync_policy
           }
-          destination = {
-            server    = "https://kubernetes.default.svc"
-            namespace = "{{path[2]}}"
-          }
-          # Ignore SopsSecret controller-mutated fields to avoid perpetual drift (in case any Helm apps include them)
-          ignoreDifferences = [
-            {
-              group = "isindir.github.com"
-              kind  = "SopsSecret"
-              jqPathExpressions = [
-                ".spec.secretTemplates[].namespace"
-              ]
-            }
-          ]
-          syncPolicy = var.sync_policy
         }
       }
     }
   }
+  # Note: The double 'spec' block is intentional for consistency with the 'app_discovery' manifest structure.
 }
