@@ -103,8 +103,8 @@ resource "kubernetes_manifest" "app_discovery" {
       ]
       template = {
         metadata = {
-          # App dir is 3rd from end (…/<app>/overlays/<env>)
-          name = "{{ (basename (dirname (dirname .path.path))) }}-${var.environment}"
+          # Derive app name: apps/<app>/overlays/<env>
+          name = "{{ (index (splitList \"/\" .path.path) 1) }}-${var.environment}"
         }
         spec = {
           project = var.argocd_project
@@ -115,7 +115,7 @@ resource "kubernetes_manifest" "app_discovery" {
           }
           destination = {
             server    = "https://kubernetes.default.svc"
-            namespace = "{{ (basename (dirname (dirname .path.path))) }}"
+            namespace = "{{ (index (splitList \"/\" .path.path) 1) }}"
           }
           ignoreDifferences = [
             {
@@ -167,31 +167,25 @@ resource "kubernetes_manifest" "helm_app_discovery" {
       ]
       template = {
         metadata = {
-          name = "{{ (basename (dirname (dirname (dirname .path.path)))) }}-${var.environment}"
+          # Derive app name: apps/<app>/helm/<env>
+          name = "{{ (index (splitList \"/\" .path.path) 1) }}-${var.environment}"
         }
         spec = {
           project = var.argocd_project
-          # The following uses Go template expressions to extract values from .spec.sources array in the discovered Application manifest.
-          # This is necessary because ApplicationSet templates do not natively merge nested fields; see ArgoCD docs for details.
-          # Example: "{{ (index .spec.sources 0).repoURL }}" extracts the repoURL from the first source in the sources array.
-          sources = [
-            {
-              repoURL        = "{{ (index .spec.sources 0).repoURL }}"
-              chart          = "{{ (index .spec.sources 0).chart }}"
-              targetRevision = "{{ (index .spec.sources 0).targetRevision }}"
-              helm = {
-                values = "{{ (index .spec.sources 0).helm.values }}"
-              }
-            },
-            {
-              repoURL        = "{{ (index .spec.sources 1).repoURL }}"
-              path           = "{{ (index .spec.sources 1).path }}"
-              targetRevision = "{{ (index .spec.sources 1).targetRevision }}"
+
+          # Support both styles: single-source (spec.source) or multi-source (spec.sources[0]).
+          source = {
+            repoURL        = "{{ if hasKey .spec \"source\" }}{{ .spec.source.repoURL }}{{ else }}{{ (index .spec.sources 0).repoURL }}{{ end }}"
+            chart          = "{{ if hasKey .spec \"source\" }}{{ .spec.source.chart }}{{ else }}{{ (index .spec.sources 0).chart }}{{ end }}"
+            targetRevision = "{{ if hasKey .spec \"source\" }}{{ .spec.source.targetRevision }}{{ else }}{{ (index .spec.sources 0).targetRevision }}{{ end }}"
+            helm = {
+              values = "{{ if hasKey .spec \"source\" }}{{ .spec.source.helm.values }}{{ else }}{{ (index .spec.sources 0).helm.values }}{{ end }}"
             }
-          ]
+          }
+
           destination = {
             server    = "https://kubernetes.default.svc"
-            namespace = "{{ .spec.destination.namespace }}"
+            namespace = "{{ if hasKey .spec \"destination\" }}{{ .spec.destination.namespace }}{{ else }}{{ .metadata.name }}{{ end }}"
           }
           ignoreDifferences = [
             {
