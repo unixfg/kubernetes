@@ -12,14 +12,6 @@ terraform {
       source  = "hashicorp/azuread"
       version = "~>2.0"
     }
-    kubernetes = {
-      source  = "hashicorp/kubernetes"
-      version = "~>2.0"
-    }
-    helm = {
-      source  = "hashicorp/helm"
-      version = "~>2.0"
-    }
     random = {
       source  = "hashicorp/random"
       version = "~>3.0"
@@ -53,7 +45,6 @@ locals {
 # AKS Cluster
 module "aks" {
   source = "../../../modules/aks"
-
   resource_group_location = var.resource_group_location
   node_count              = var.node_count
   vm_size                 = var.vm_size
@@ -61,17 +52,11 @@ module "aks" {
   common_tags             = local.common_tags
 }
 
-# Configure providers to talk to the cluster created above
-provider "kubernetes" {
-  config_path    = pathexpand("~/.kube/config")
-  config_context = module.aks.cluster_name
-}
-
-provider "helm" {
-  kubernetes {
-    config_path    = pathexpand("~/.kube/config")
-    config_context = module.aks.cluster_name
-  }
+# Fetch cluster connection data (module encapsulates the actual resource)
+data "azurerm_kubernetes_cluster" "cluster" {
+  name                = module.aks.cluster_name
+  resource_group_name = module.aks.resource_group_name
+  depends_on          = [module.aks]
 }
 
 # Setup local kubeconfig for kubectl
@@ -129,27 +114,6 @@ resource "null_resource" "wait_for_cluster" {
   }
 }
 
-# Namespace for sops-secrets-operator
-resource "kubernetes_namespace" "sops_secrets_operator" {
-  depends_on = [
-    module.aks,
-    null_resource.wait_for_cluster,
-    null_resource.setup_kubeconfig
-  ]
-
-  metadata {
-    name = "sops-secrets-operator"
-    labels = {
-      "name"                         = "sops-secrets-operator"
-      "app.kubernetes.io/managed-by" = "terraform"
-    }
-  }
-
-  lifecycle {
-    create_before_destroy = true
-  }
-}
-
 # Azure Key Vault + SOPS integration
 module "akv_sops" {
   source = "../../../modules/akv-sops"
@@ -169,11 +133,11 @@ module "akv_sops" {
     }
   }
 
-  create_workload_identity      = true
-  workload_identity_name        = "sops-secrets-operator-${local.environment_name}"
-  workload_identity_description = "Kubernetes service account for sops-secrets-operator"
-  oidc_issuer_url               = module.aks.cluster_oidc_issuer_url
-  workload_identity_subject     = "system:serviceaccount:sops-secrets-operator:sops-secrets-operator"
+  create_workload_identity      = false
+  # workload_identity_name        = "sops-secrets-operator-${local.environment_name}"
+  # workload_identity_description = "Kubernetes service account for sops-secrets-operator"
+  # oidc_issuer_url               = module.aks.cluster_oidc_issuer_url
+  # workload_identity_subject     = "system:serviceaccount:sops-secrets-operator:sops-secrets-operator"
 
   environment = local.environment_name
 
@@ -181,7 +145,6 @@ module "akv_sops" {
 
   depends_on = [
     module.aks,
-    kubernetes_namespace.sops_secrets_operator,
     null_resource.wait_for_cluster
   ]
 }

@@ -104,19 +104,18 @@ resource "kubernetes_manifest" "app_discovery" {
       template = {
         metadata = {
           # App dir is 3rd from end (…/<app>/overlays/<env>)
-          name = "{{ $s := split \"/\" .path }}{{ index $s (sub (len $s) 3) }}-${var.environment}"
+          name = "{{ (basename (dirname (dirname .path.path))) }}-${var.environment}"
         }
-        spec = {
         spec = {
           project = var.argocd_project
           source = {
             repoURL        = var.use_ssh_for_git ? replace(var.git_repo_url, "https://github.com/", "git@github.com:") : var.git_repo_url
             targetRevision = var.git_revision
-            path           = "{{ .path }}"
+            path           = "{{ .path.path }}"
           }
           destination = {
             server    = "https://kubernetes.default.svc"
-            namespace = "{{ $s := split \"/\" .path }}{{ index $s (sub (len $s) 3) }}"
+            namespace = "{{ (basename (dirname (dirname .path.path))) }}"
           }
           ignoreDifferences = [
             {
@@ -129,6 +128,7 @@ resource "kubernetes_manifest" "app_discovery" {
           ]
           syncPolicy = var.sync_policy
         }
+      }
     }
   }
 }
@@ -167,48 +167,44 @@ resource "kubernetes_manifest" "helm_app_discovery" {
       ]
       template = {
         metadata = {
-          # Extract app name: directory is 4th from end (…/<app>/helm/<env>/application.yaml)
-          name = "{{ $s := split \"/\" .path }}{{ index $s (sub (len $s) 4) }}-${var.environment}"
+          name = "{{ (basename (dirname (dirname (dirname .path.path)))) }}-${var.environment}"
         }
         spec = {
-          spec = {
-            project = var.argocd_project
-            # The following uses Go template expressions to extract values from .spec.sources array in the discovered Application manifest.
-            # This is necessary because ApplicationSet templates do not natively merge nested fields; see ArgoCD docs for details.
-            # Example: "{{ (index .spec.sources 0).repoURL }}" extracts the repoURL from the first source in the sources array.
-            sources = [
-              {
-                repoURL        = "{{ (index .spec.sources 0).repoURL }}"
-                chart          = "{{ (index .spec.sources 0).chart }}"
-                targetRevision = "{{ (index .spec.sources 0).targetRevision }}"
-                helm = {
-                  values = "{{ (index .spec.sources 0).helm.values }}"
-                }
-              },
-              {
-                repoURL        = "{{ (index .spec.sources 1).repoURL }}"
-                path           = "{{ (index .spec.sources 1).path }}"
-                targetRevision = "{{ (index .spec.sources 1).targetRevision }}"
+          project = var.argocd_project
+          # The following uses Go template expressions to extract values from .spec.sources array in the discovered Application manifest.
+          # This is necessary because ApplicationSet templates do not natively merge nested fields; see ArgoCD docs for details.
+          # Example: "{{ (index .spec.sources 0).repoURL }}" extracts the repoURL from the first source in the sources array.
+          sources = [
+            {
+              repoURL        = "{{ (index .spec.sources 0).repoURL }}"
+              chart          = "{{ (index .spec.sources 0).chart }}"
+              targetRevision = "{{ (index .spec.sources 0).targetRevision }}"
+              helm = {
+                values = "{{ (index .spec.sources 0).helm.values }}"
               }
-            ]
-            destination = {
-              server    = "https://kubernetes.default.svc"
-              namespace = "{{ .spec.destination.namespace }}"
+            },
+            {
+              repoURL        = "{{ (index .spec.sources 1).repoURL }}"
+              path           = "{{ (index .spec.sources 1).path }}"
+              targetRevision = "{{ (index .spec.sources 1).targetRevision }}"
             }
-            ignoreDifferences = [
-              {
-                group = "isindir.github.com"
-                kind  = "SopsSecret"
-                jqPathExpressions = [
-                  ".spec.secretTemplates[].namespace"
-                ]
-              }
-            ]
-            syncPolicy = var.sync_policy
+          ]
+          destination = {
+            server    = "https://kubernetes.default.svc"
+            namespace = "{{ .spec.destination.namespace }}"
           }
+          ignoreDifferences = [
+            {
+              group = "isindir.github.com"
+              kind  = "SopsSecret"
+              jqPathExpressions = [
+                ".spec.secretTemplates[].namespace"
+              ]
+            }
+          ]
+          syncPolicy = var.sync_policy
         }
       }
     }
   }
-  # Note: The double 'spec' block is intentional for consistency with the 'app_discovery' manifest structure.
 }

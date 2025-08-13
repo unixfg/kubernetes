@@ -4,6 +4,10 @@
 
 terraform {
   required_providers {
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "~>3.0"
+    }
     kubernetes = {
       source  = "hashicorp/kubernetes"
       version = "~>2.0"
@@ -20,6 +24,11 @@ locals {
   environment_name = basename(dirname(path.cwd))
 }
 
+# Azure provider configuration
+provider "azurerm" {
+  features {}
+}
+
 # Consume outputs from 1-azure stack
 data "terraform_remote_state" "azure" {
   backend = "local"
@@ -28,16 +37,41 @@ data "terraform_remote_state" "azure" {
   }
 }
 
-# Configure providers with cluster details from 1-azure
+# Fetch cluster connection data using outputs from Stage 1
+data "azurerm_kubernetes_cluster" "cluster" {
+  name                = data.terraform_remote_state.azure.outputs.cluster_name
+  resource_group_name = data.terraform_remote_state.azure.outputs.resource_group_name
+}
+
+# Configure providers with cluster details directly (no kubeconfig context dependency)
 provider "kubernetes" {
-  config_path    = pathexpand("~/.kube/config")
-  config_context = data.terraform_remote_state.azure.outputs.cluster_name
+  host                   = data.azurerm_kubernetes_cluster.cluster.kube_config[0].host
+  client_certificate     = base64decode(data.azurerm_kubernetes_cluster.cluster.kube_config[0].client_certificate)
+  client_key             = base64decode(data.azurerm_kubernetes_cluster.cluster.kube_config[0].client_key)
+  cluster_ca_certificate = base64decode(data.azurerm_kubernetes_cluster.cluster.kube_config[0].cluster_ca_certificate)
 }
 
 provider "helm" {
   kubernetes {
-    config_path    = pathexpand("~/.kube/config")
-    config_context = data.terraform_remote_state.azure.outputs.cluster_name
+    host                   = data.azurerm_kubernetes_cluster.cluster.kube_config[0].host
+    client_certificate     = base64decode(data.azurerm_kubernetes_cluster.cluster.kube_config[0].client_certificate)
+    client_key             = base64decode(data.azurerm_kubernetes_cluster.cluster.kube_config[0].client_key)
+    cluster_ca_certificate = base64decode(data.azurerm_kubernetes_cluster.cluster.kube_config[0].cluster_ca_certificate)
+  }
+}
+
+# Namespace for sops-secrets-operator (moved from Stage 1)
+resource "kubernetes_namespace" "sops_secrets_operator" {
+  metadata {
+    name = "sops-secrets-operator"
+    labels = {
+      "name"                         = "sops-secrets-operator"
+      "app.kubernetes.io/managed-by" = "terraform"
+    }
+  }
+
+  lifecycle {
+    create_before_destroy = true
   }
 }
 

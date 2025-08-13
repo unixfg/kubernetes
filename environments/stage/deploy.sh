@@ -5,9 +5,40 @@
 
 set -euo pipefail
 
+
 ROOT_DIR=$(cd "$(dirname "$0")" && pwd)
 STACK_AZURE="$ROOT_DIR/1-azure"
 STACK_ARGOCD="$ROOT_DIR/2-argocd"
+
+# Reset state if requested
+if [[ "${1:-}" == "reset" ]]; then
+    echo "========================================================"
+    echo "Terraform state backup and reset requested!"
+    echo "========================================================"
+    BACKUP_DIR="backup-$(date +%Y%m%d-%H%M%S)"
+    mkdir -p "$ROOT_DIR/$BACKUP_DIR"
+    
+    for stack in "$STACK_AZURE" "$STACK_ARGOCD"; do
+        stack_name=$(basename "$stack")
+        echo "Backing up and clearing state in $stack..."
+        
+        # Backup state files if they exist
+        if [[ -f "$stack/terraform.tfstate" ]]; then
+            cp "$stack/terraform.tfstate" "$ROOT_DIR/$BACKUP_DIR/${stack_name}-terraform.tfstate"
+        fi
+        if [[ -f "$stack/terraform.tfstate.backup" ]]; then
+            cp "$stack/terraform.tfstate.backup" "$ROOT_DIR/$BACKUP_DIR/${stack_name}-terraform.tfstate.backup"
+        fi
+        
+        # Remove state files and terraform cache
+        rm -f "$stack/terraform.tfstate" "$stack/terraform.tfstate.backup" "$stack/.terraform.lock.hcl"
+        rm -rf "$stack/.terraform"
+    done
+    
+    echo "✅ All Terraform state backed up to: $ROOT_DIR/$BACKUP_DIR"
+    echo "✅ State files cleared for fresh deployment."
+    exit 0
+fi
 
 # Avoid proxies interfering with AKS API or local connections
 export NO_PROXY=localhost,127.0.0.1,::1,.azmk8s.io
