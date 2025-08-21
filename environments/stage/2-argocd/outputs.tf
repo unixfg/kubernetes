@@ -6,6 +6,11 @@ output "argocd_repo_public_key" {
   value       = trimspace(module.argocd.argocd_repo_public_key)
 }
 
+output "argocd_port_forward_command" {
+  description = "Command to access ArgoCD via HTTP port forwarding"
+  value       = module.argocd.argocd_port_forward_command
+}
+
 # User-Friendly Deployment Summary
 output "deployment_summary" {
   description = "Deployment summary"
