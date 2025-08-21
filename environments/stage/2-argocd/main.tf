@@ -84,4 +84,59 @@ module "argocd" {
   use_ssh_for_git             = var.use_ssh_for_git
   argocd_repo_ssh_secret_name = var.argocd_repo_ssh_secret_name
   create_applicationset       = var.enable_applicationsets
+  
+  argocd_values = {
+    server = {
+      service = {
+        type = "ClusterIP"
+      }
+      extraArgs = ["--insecure"]
+      resources = {
+        limits = {
+          memory = "256Mi"
+          cpu    = "500m"
+        }
+        requests = {
+          memory = "128Mi"
+          cpu    = "100m"
+        }
+      }
+    }
+    controller = {
+      resources = {
+        limits = {
+          memory = "512Mi"
+          cpu    = "1000m"
+        }
+        requests = {
+          memory = "256Mi"
+          cpu    = "200m"
+        }
+      }
+    }
+    repoServer = {
+      resources = {
+        limits = {
+          memory = "256Mi"
+          cpu    = "500m"
+        }
+        requests = {
+          memory = "128Mi"
+          cpu    = "100m"
+        }
+      }
+    }
+    applicationSet = {
+      resources = {
+        limits = {
+          memory = "128Mi"
+          cpu    = "200m"
+        }
+        requests = {
+          memory = "64Mi"
+          cpu    = "50m"
+        }
+      }
+    }
+  }
 }
