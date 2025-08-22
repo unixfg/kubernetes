@@ -1,5 +1,5 @@
 ###############################################
-# Stage Environment - 2-argocd (GitOps/ArgoCD)
+# Stage Environment - 2-platform (GitOps Platform: ArgoCD + SOPS Operator)
 ###############################################
 
 terraform {
@@ -60,7 +60,7 @@ provider "helm" {
   }
 }
 
-# Namespace for sops-secrets-operator (moved from Stage 1)
+# Namespace for sops-secrets-operator (moved from ArgoCD)
 resource "kubernetes_namespace" "sops_secrets_operator" {
   metadata {
     name = "sops-secrets-operator"
@@ -73,6 +73,68 @@ resource "kubernetes_namespace" "sops_secrets_operator" {
   lifecycle {
     create_before_destroy = true
   }
+}
+
+# SOPS Secrets Operator - moved from ArgoCD to Terraform for proper dependency ordering
+resource "helm_release" "sops_secrets_operator" {
+  name       = "sops-secrets-operator"
+  repository = "https://isindir.github.io/sops-secrets-operator/"
+  chart      = "sops-secrets-operator"
+  version    = "0.19.0"
+  namespace  = kubernetes_namespace.sops_secrets_operator.metadata[0].name
+
+  values = [
+    yamlencode({
+      image = {
+        tag = "0.16.0"
+      }
+      
+      replicaCount = 1
+      
+      resources = {
+        limits = {
+          cpu    = "100m"
+          memory = "128Mi"
+        }
+        requests = {
+          cpu    = "50m"
+          memory = "64Mi"
+        }
+      }
+      
+      env = {
+        WATCH_NAMESPACE = ""  # Watch all namespaces
+      }
+      
+      serviceAccount = {
+        create = true
+        name   = "sops-secrets-operator"
+      }
+    })
+  ]
+
+  depends_on = [kubernetes_namespace.sops_secrets_operator]
+}
+
+# ConfigMap with SOPS Key Vault URL for sops-helpers.sh
+resource "kubernetes_config_map" "sops_workload_identity" {
+  metadata {
+    name      = "sops-workload-identity"
+    namespace = kubernetes_namespace.sops_secrets_operator.metadata[0].name
+    labels = {
+      "app.kubernetes.io/name"      = "sops-secrets-operator"
+      "app.kubernetes.io/component" = "secrets-management"
+      "app.kubernetes.io/managed-by" = "terraform"
+    }
+  }
+
+  data = {
+    key_vault_url = data.terraform_remote_state.azure.outputs.sops_azure_kv_url
+  }
+
+  depends_on = [
+    helm_release.sops_secrets_operator
+  ]
 }
 
 # ArgoCD GitOps Controller

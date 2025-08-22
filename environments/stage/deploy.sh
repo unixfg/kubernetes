@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Two-Stage AKS Deployment Script (split: 1-azure, 2-argocd)
+# Two-Stage AKS Deployment Script (split: 1-azure, 2-platform)
 # Runs Terraform in each subfolder to avoid state cycles and ignores the monolithic root.
 
 set -euo pipefail
@@ -8,7 +8,7 @@ set -euo pipefail
 
 ROOT_DIR=$(cd "$(dirname "$0")" && pwd)
 STACK_AZURE="$ROOT_DIR/1-azure"
-STACK_ARGOCD="$ROOT_DIR/2-argocd"
+STACK_PLATFORM="$ROOT_DIR/2-platform"
 
 # Reset state if requested
 if [[ "${1:-}" == "reset" ]]; then
@@ -18,7 +18,7 @@ if [[ "${1:-}" == "reset" ]]; then
     BACKUP_DIR="backup-$(date +%Y%m%d-%H%M%S)"
     mkdir -p "$ROOT_DIR/$BACKUP_DIR"
     
-    for stack in "$STACK_AZURE" "$STACK_ARGOCD"; do
+    for stack in "$STACK_AZURE" "$STACK_PLATFORM"; do
         stack_name=$(basename "$stack")
         echo "Backing up and clearing state in $stack..."
         
@@ -48,10 +48,10 @@ echo "========================================================"
 echo "AKS Two-Stage Deployment Script"
 echo "========================================================"
 
-if [[ ! -d "$STACK_AZURE" || ! -d "$STACK_ARGOCD" ]]; then
+if [[ ! -d "$STACK_AZURE" || ! -d "$STACK_PLATFORM" ]]; then
     echo "❌ Expected subfolders not found:"
     echo "   - $STACK_AZURE"
-    echo "   - $STACK_ARGOCD"
+    echo "   - $STACK_PLATFORM"
     exit 1
 fi
 
@@ -81,19 +81,19 @@ echo ""
 echo "✅ Stage 1 completed successfully!"
 echo ""
 echo "========================================================"
-echo "Stage 2: Deploy ArgoCD (2-argocd)"
+echo "Stage 2: Deploy GitOps Platform (ArgoCD + SOPS Operator) (2-platform)"
 echo "========================================================"
 echo ""
 
-pushd "$STACK_ARGOCD" >/dev/null
+pushd "$STACK_PLATFORM" >/dev/null
 terraform init -input=false
 PLAN2="tfplan-stage2-$(date +%Y%m%d%H%M%S).bin"
 terraform plan -out="$PLAN2"
 echo ""
-read -p "Continue with Stage 2 deployment (ArgoCD)? (y/N): " -n 1 -r
+read -p "Continue with Stage 2 deployment (GitOps Platform)? (y/N): " -n 1 -r
 echo
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    echo "Stage 2 skipped. You can run it later from $STACK_ARGOCD."
+    echo "Stage 2 skipped. You can run it later from $STACK_PLATFORM."
     rm -f "$PLAN2"
     popd >/dev/null
     exit 0
