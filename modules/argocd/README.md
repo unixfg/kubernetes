@@ -176,7 +176,7 @@ module "akv_sops" {
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | `environment` | Environment name (e.g., dev, stage, prod) | `string` | n/a | yes |
-| `git_repo_url` | Git repository URL for ArgoCD applications | `string` | `"https://github.com/unixfg/kubernetes-config.git"` | no |
+| `git_repo_url` | Git repository URL for ArgoCD applications | `string` | `"https://github.com/unixfg/kubernetes.git"` | no |
 | `git_revision` | Git revision/branch to track | `string` | `"HEAD"` | no |
 | `use_ssh_for_git` | Whether to use SSH for git repository access | `bool` | `true` | no |
 | `argocd_repo_ssh_secret_name` | Name of the Kubernetes Secret to store SSH key | `string` | `"argocd-repo-ssh"` | no |

@@ -1,6 +1,6 @@
-# Stage 2-argocd
+# Stage 2-platform
 
-This stack deploys ArgoCD (GitOps controller) into the cluster created by `../1-azure`.
+This stack deploys the GitOps platform (ArgoCD + SOPS Secrets Operator) into the cluster created by `../1-azure`.
 
 Prerequisites:
 - Run `../1-azure` first so `../1-azure/terraform.tfstate` exists.
