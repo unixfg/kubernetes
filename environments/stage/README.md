@@ -7,20 +7,28 @@ This environment uses a split Terraform workflow:
 
 The SOPS Secrets Operator is now managed by Terraform (not ArgoCD) to ensure proper dependency ordering and ConfigMap creation.
 
-Use the `deploy.sh` script in this folder to run both stages. The previous monolithic Terraform in this directory has been removed.
+## Deployment Instructions:
 
-## Quick start:
-
-```bash
-bash deploy.sh
-```
-
-## Manual runs:
+### Direct Terraform (Recommended):
 
 ```bash
-cd 1-azure && terraform init && terraform apply
-cd ../2-platform && terraform init && terraform apply
+# Stage 1: Azure Infrastructure
+cd 1-azure
+terraform init
+terraform plan -out main.tfplan
+terraform apply main.tfplan
+
+# Stage 2: Platform Layer
+cd ../2-platform
+terraform init
+terraform plan -out main.tfplan
+terraform apply main.tfplan
 ```
+
+This approach provides:
+- **Full visibility** into Terraform plans before applying
+- **Granular control** over individual stacks
+- **Professional workflow** following Terraform best practices
 
 ## Next Steps After Deployment:
 
