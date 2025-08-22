@@ -24,11 +24,23 @@ terraform {
       source  = "hashicorp/null"
       version = "~>3.0"
     }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~>2.0"
+    }
   }
 }
 
 provider "azurerm" {
   features {}
+}
+
+# Configure Kubernetes provider using cluster connection details
+provider "kubernetes" {
+  host                   = data.azurerm_kubernetes_cluster.cluster.kube_config.0.host
+  client_certificate     = base64decode(data.azurerm_kubernetes_cluster.cluster.kube_config.0.client_certificate)
+  client_key             = base64decode(data.azurerm_kubernetes_cluster.cluster.kube_config.0.client_key)
+  cluster_ca_certificate = base64decode(data.azurerm_kubernetes_cluster.cluster.kube_config.0.cluster_ca_certificate)
 }
 
 data "azurerm_client_config" "current" {}
@@ -146,5 +158,41 @@ module "akv_sops" {
   depends_on = [
     module.aks,
     null_resource.wait_for_cluster
+  ]
+}
+
+# Create namespace for sops-secrets-operator
+resource "kubernetes_namespace" "sops_secrets_operator" {
+  metadata {
+    name = "sops-secrets-operator"
+    labels = {
+      "app.kubernetes.io/name" = "sops-secrets-operator"
+      "app.kubernetes.io/component" = "secrets-management"
+    }
+  }
+
+  depends_on = [
+    null_resource.wait_for_cluster
+  ]
+}
+
+# Create ConfigMap with SOPS Key Vault URL for sops-helpers.sh
+resource "kubernetes_config_map" "sops_workload_identity" {
+  metadata {
+    name      = "sops-workload-identity"
+    namespace = kubernetes_namespace.sops_secrets_operator.metadata[0].name
+    labels = {
+      "app.kubernetes.io/name" = "sops-secrets-operator"
+      "app.kubernetes.io/component" = "secrets-management"
+    }
+  }
+
+  data = {
+    key_vault_url = module.akv_sops.sops_azure_kv_url
+  }
+
+  depends_on = [
+    module.akv_sops,
+    kubernetes_namespace.sops_secrets_operator
   ]
 }

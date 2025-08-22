@@ -79,3 +79,9 @@ output "environment" {
   value       = local.environment_name
   description = "Current environment name"
 }
+
+# SOPS ConfigMap creation status
+output "sops_configmap_created" {
+  value       = "ConfigMap '${kubernetes_config_map.sops_workload_identity.metadata[0].name}' created in namespace '${kubernetes_config_map.sops_workload_identity.metadata[0].namespace}'"
+  description = "Status of SOPS ConfigMap creation for helper scripts"
+}
