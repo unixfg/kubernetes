@@ -153,52 +153,6 @@ module "argocd" {
         type = "ClusterIP"
       }
       extraArgs = ["--insecure"]
-      resources = {
-        limits = {
-          memory = "256Mi"
-          cpu    = "500m"
-        }
-        requests = {
-          memory = "128Mi"
-          cpu    = "100m"
-        }
-      }
-    }
-    controller = {
-      resources = {
-        limits = {
-          memory = "512Mi"
-          cpu    = "1000m"
-        }
-        requests = {
-          memory = "256Mi"
-          cpu    = "200m"
-        }
-      }
-    }
-    repoServer = {
-      resources = {
-        limits = {
-          memory = "256Mi"
-          cpu    = "500m"
-        }
-        requests = {
-          memory = "128Mi"
-          cpu    = "100m"
-        }
-      }
-    }
-    applicationSet = {
-      resources = {
-        limits = {
-          memory = "128Mi"
-          cpu    = "200m"
-        }
-        requests = {
-          memory = "64Mi"
-          cpu    = "50m"
-        }
-      }
     }
   }
 }

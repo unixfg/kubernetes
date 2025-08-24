@@ -45,13 +45,24 @@ resource "azurerm_role_assignment" "current_user_admin" {
   principal_id         = data.azurerm_client_config.current.object_id
 }
 
+# Grant current user data-plane permissions explicitly (defense-in-depth)
+resource "azurerm_role_assignment" "current_user_crypto_user" {
+  scope                = azurerm_key_vault.sops.id
+  role_definition_name = "Key Vault Crypto User"
+  principal_id         = data.azurerm_client_config.current.object_id
+}
+
 # Add delay to ensure Key Vault and RBAC are fully ready
 resource "time_sleep" "wait_for_key_vault" {
-  create_duration = "30s"
+  # RBAC propagation can be slow; give it more time to avoid transient 403s
+  create_duration = "120s"
   
   depends_on = [
     azurerm_key_vault.sops,
-    azurerm_role_assignment.current_user_admin
+    azurerm_role_assignment.current_user_admin,
+    azurerm_role_assignment.current_user_crypto_user,
+    azurerm_role_assignment.additional,
+    azurerm_role_assignment.workload_identity
   ]
 }
 
