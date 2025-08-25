@@ -134,7 +134,6 @@ resource "kubernetes_manifest" "app_discovery" {
 }
 
 # ArgoCD ApplicationSet for Helm applications stored as Application manifests
-# This discovers Application manifests and creates ArgoCD Applications from their contents.
 resource "kubernetes_manifest" "helm_app_discovery" {
   count      = var.create_applicationset ? 1 : 0
   depends_on = [time_sleep.wait_for_argocd, kubernetes_secret.argocd_repo_ssh]
@@ -167,27 +166,29 @@ resource "kubernetes_manifest" "helm_app_discovery" {
       ]
       template = {
         metadata = {
-          # Derive app name: apps/<app>/helm/<env>
           name = "{{ (index (splitList \"/\" .path.path) 1) }}-${var.environment}"
         }
         spec = {
           project = var.argocd_project
-
-          # Support both styles: single-source (spec.source) or multi-source (spec.sources[0]).
-          source = {
-            repoURL        = "{{ if hasKey .spec \"source\" }}{{ .spec.source.repoURL }}{{ else }}{{ (index .spec.sources 0).repoURL }}{{ end }}"
-            chart          = "{{ if hasKey .spec \"source\" }}{{ .spec.source.chart }}{{ else }}{{ (index .spec.sources 0).chart }}{{ end }}"
-            path           = "{{ if hasKey .spec \"source\" }}{{ .spec.source.path }}{{ else }}{{ (index .spec.sources 0).path }}{{ end }}"
-            targetRevision = "{{ if hasKey .spec \"source\" }}{{ .spec.source.targetRevision }}{{ else }}{{ (index .spec.sources 0).targetRevision }}{{ end }}"
-            helm = {
-              values = "{{ if hasKey .spec \"source\" }}{{ .spec.source.helm.values }}{{ else }}{{ (index .spec.sources 0).helm.values }}{{ end }}"
+          
+          # Use sources array which handles both Helm repos and Git repos cleanly
+          sources = [
+            {
+              repoURL        = "{{ .spec.source.repoURL }}"
+              targetRevision = "{{ .spec.source.targetRevision }}"
+              chart          = "{{ .spec.source.chart | default \"\" }}"
+              path           = "{{ .spec.source.path | default \"\" }}"
+              helm = {
+                values = "{{ .spec.source.helm.values | default \"\" }}"
+              }
             }
-          }
+          ]
 
           destination = {
             server    = "https://kubernetes.default.svc"
             namespace = "{{ if hasKey .spec \"destination\" }}{{ .spec.destination.namespace }}{{ else }}{{ .metadata.name }}{{ end }}"
           }
+          
           ignoreDifferences = [
             {
               group = "isindir.github.com"
@@ -197,6 +198,7 @@ resource "kubernetes_manifest" "helm_app_discovery" {
               ]
             }
           ]
+          
           syncPolicy = var.sync_policy
         }
       }
