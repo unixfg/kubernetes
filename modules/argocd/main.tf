@@ -177,6 +177,7 @@ resource "kubernetes_manifest" "helm_app_discovery" {
           source = {
             repoURL        = "{{ if hasKey .spec \"source\" }}{{ .spec.source.repoURL }}{{ else }}{{ (index .spec.sources 0).repoURL }}{{ end }}"
             chart          = "{{ if hasKey .spec \"source\" }}{{ .spec.source.chart }}{{ else }}{{ (index .spec.sources 0).chart }}{{ end }}"
+            path           = "{{ if hasKey .spec \"source\" }}{{ .spec.source.path }}{{ else }}{{ (index .spec.sources 0).path }}{{ end }}"
             targetRevision = "{{ if hasKey .spec \"source\" }}{{ .spec.source.targetRevision }}{{ else }}{{ (index .spec.sources 0).targetRevision }}{{ end }}"
             helm = {
               values = "{{ if hasKey .spec \"source\" }}{{ .spec.source.helm.values }}{{ else }}{{ (index .spec.sources 0).helm.values }}{{ end }}"
