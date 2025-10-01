@@ -1,21 +1,15 @@
-# ArgoCD Module Input Variables
-# Defines configurable parameters for the ArgoCD GitOps deployment
+# Prod 2-platform Variables (GitOps/ArgoCD for K3s)
 
 variable "environment" {
-  description = "Environment name (e.g., dev, stage, prod)"
+  description = "Environment name (e.g., prod, dev)"
   type        = string
+  default     = "prod"
 }
 
 variable "git_repo_url" {
   description = "Git repository URL for ArgoCD applications"
   type        = string
-  default     = "https://github.com/unixfg/kubernetes-config.git"
-}
-
-variable "git_revision" {
-  description = "Git revision/branch to track"
-  type        = string
-  default     = "HEAD"
+  default     = "https://github.com/unixfg/gitops.git"
 }
 
 variable "use_ssh_for_git" {
@@ -30,63 +24,43 @@ variable "argocd_repo_ssh_secret_name" {
   default     = "argocd-repo-ssh"
 }
 
-variable "argocd_chart_version" {
-  description = "ArgoCD Helm chart version"
-  type        = string
-  default     = null
+variable "enable_applicationsets" {
+  description = "Whether to enable ApplicationSets for automatic app discovery. Set to false for initial cluster deployment."
+  type        = bool
+  default     = false
 }
 
-variable "argocd_project" {
-  description = "ArgoCD project for applications"
+# K3s SOPS Configuration
+variable "gpg_secret_name" {
+  description = "Name of the Kubernetes secret containing GPG keys for SOPS"
+  type        = string
+  default     = "sops-gpg-keys"
+}
+
+variable "gpg_secret_namespace" {
+  description = "Namespace of the Kubernetes secret containing GPG keys"
   type        = string
   default     = "default"
 }
 
-variable "argocd_values" {
-  description = "ArgoCD Helm chart values"
-  type        = any
-  default = {
-    server = {
-      service = {
-        type = "ClusterIP"
-      }
-      extraArgs = ["--insecure"]
-    }
-  }
+variable "gpg_fingerprint" {
+  description = "GPG key fingerprint for SOPS configuration"
+  type        = string
 }
 
-variable "app_discovery_directories" {
-  description = "List of directories to scan for applications"
-  type        = list(object({
-    path = string
-  }))
-  default = [
-    {
-      path = "apps/*"
-    }
-  ]
+variable "argocd_domain" {
+  description = "Domain name for ArgoCD ingress"
+  type        = string
+  default     = "argocd.example.com"
 }
 
-variable "sync_policy" {
-  description = "ArgoCD sync policy configuration"
-  type        = any
-  default = {
-    automated = {
-      prune    = true
-      selfHeal = true
-    }
-    syncOptions = [
-      "CreateNamespace=true"
-    ]
-  }
-}
-
-variable "create_applicationset" {
-  description = "Whether to create the ApplicationSet for automatic app discovery"
+variable "ingress_enabled" {
+  description = "Whether to enable ArgoCD ingress"
   type        = bool
-  default     = true
+  default     = false
 }
 
+# GitHub App Configuration
 variable "use_github_app" {
   description = "Whether to use GitHub App for authentication instead of SSH"
   type        = bool
@@ -118,6 +92,7 @@ variable "argocd_repo_secret_name" {
   default     = "argocd-repo-creds"
 }
 
+# Webhook Configuration
 variable "enable_webhooks" {
   description = "Whether to enable GitHub webhooks for immediate sync instead of polling"
   type        = bool

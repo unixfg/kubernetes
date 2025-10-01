@@ -7,8 +7,8 @@ output "argocd_namespace" {
 }
 
 output "argocd_repo_public_key" {
-  description = "Public SSH key for ArgoCD to access private config repo. Add this as a deploy key."
-  value       = tls_private_key.argocd_repo.public_key_openssh
+  description = "Public SSH key for ArgoCD (only when using SSH auth)"
+  value       = var.use_github_app ? "GitHub App authentication - no SSH key needed" : tls_private_key.argocd_repo[0].public_key_openssh
 }
 
 output "argocd_port_forward_command" {
@@ -17,6 +17,11 @@ output "argocd_port_forward_command" {
 }
 
 output "argocd_secret_name" {
-  value       = kubernetes_secret.argocd_repo_ssh.metadata[0].name
-  description = "Name of the ArgoCD repository SSH secret"
+  value       = kubernetes_secret.argocd_repo_creds.metadata[0].name
+  description = "Name of the ArgoCD repository credentials secret"
+}
+
+output "github_app_instructions" {
+  description = "Instructions for GitHub App setup"
+  value = var.use_github_app ? "GitHub App configured with ID: ${var.github_app_id}" : "Using SSH authentication"
 }

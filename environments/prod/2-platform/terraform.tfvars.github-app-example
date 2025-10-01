@@ -1,0 +1,24 @@
+# Prod Environment Configuration for K3s - GitHub App Authentication Example
+environment = "prod"
+
+# GPG Configuration for SOPS
+gpg_secret_name      = "sops-gpg-keys"
+gpg_secret_namespace = "default"
+gpg_fingerprint      = "2F3D495C83C4535506C1ABCD2AC9B84E991386D2"
+
+# ArgoCD Configuration - GitHub App Authentication
+git_repo_url                = "https://github.com/unixfg/gitops.git"
+use_ssh_for_git             = false  # Disable SSH authentication
+use_github_app              = true   # Enable GitHub App authentication
+github_app_id               = "123456"  # Replace with your GitHub App ID
+github_app_installation_id  = "12345678"  # Replace with your Installation ID
+argocd_repo_secret_name     = "argocd-repo-github-app"
+enable_applicationsets      = true
+argocd_domain               = "argocd.example.com"
+ingress_enabled             = true
+
+# GitHub App Private Key should be set via environment variable for security:
+# export TF_VAR_github_app_private_key="$(cat /path/to/your/github-app-private-key.pem)"
+#
+# Or using SOPS encryption (recommended for production):
+# github_app_private_key = "ENC[AES256_GCM,data:...,tag:...,type:str]"

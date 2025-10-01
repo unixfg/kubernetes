@@ -8,23 +8,30 @@ resource "kubernetes_namespace" "argocd" {
   }
 }
 
-# Generate SSH key pair for ArgoCD repository access
+# Generate SSH key pair for ArgoCD repository access (only when not using GitHub App)
 resource "tls_private_key" "argocd_repo" {
+  count     = var.use_github_app ? 0 : 1
   algorithm = "ED25519"
 }
 
-# Store SSH private key in Kubernetes Secret for ArgoCD repository access
-resource "kubernetes_secret" "argocd_repo_ssh" {
+# Repository credentials secret (supports both SSH and GitHub App authentication)
+resource "kubernetes_secret" "argocd_repo_creds" {
   metadata {
-    name      = var.argocd_repo_ssh_secret_name
+    name      = var.argocd_repo_secret_name
     namespace = kubernetes_namespace.argocd.metadata[0].name
     labels = {
       "argocd.argoproj.io/secret-type" = "repository"
     }
   }
 
-  data = {
-    "sshPrivateKey" = tls_private_key.argocd_repo.private_key_openssh
+  data = var.use_github_app ? {
+    "type"                    = "git"
+    "url"                     = var.git_repo_url
+    "githubAppID"            = var.github_app_id
+    "githubAppInstallationID" = var.github_app_installation_id
+    "githubAppPrivateKey"    = var.github_app_private_key
+  } : {
+    "sshPrivateKey" = tls_private_key.argocd_repo[0].private_key_openssh
     "url"           = var.use_ssh_for_git ? replace(var.git_repo_url, "https://github.com/", "git@github.com:") : var.git_repo_url
     "type"          = "git"
   }
@@ -39,8 +46,28 @@ resource "helm_release" "argocd" {
   version    = var.argocd_chart_version
 
   values = [
-    yamlencode(var.argocd_values)
+    yamlencode(merge(var.argocd_values, {
+      repoServer = {
+        volumes = [
+          {
+            name = "repo-credentials"
+            secret = {
+              secretName = var.argocd_repo_secret_name
+            }
+          }
+        ]
+        volumeMounts = [
+          {
+            name      = "repo-credentials"
+            mountPath = "/app/config/repository"
+            readOnly  = true
+          }
+        ]
+      }
+    }))
   ]
+
+  depends_on = [kubernetes_secret.argocd_repo_creds]
 }
 
 # Create ConfigMap with environment configuration for applications
@@ -52,6 +79,100 @@ resource "kubernetes_config_map" "environment_config" {
 
   data = {
     environment = var.environment
+  }
+}
+
+# ArgoCD webhook secret for GitHub integration - Managed by Helm chart values
+# The actual secret is managed by the Helm chart, this is just for webhook configuration
+resource "kubernetes_secret" "argocd_webhook_secret" {
+  count = var.enable_webhooks ? 1 : 0
+
+  metadata {
+    name      = "argocd-secret"
+    namespace = kubernetes_namespace.argocd.metadata[0].name
+    annotations = {
+      "meta.helm.sh/release-name"      = "argocd"
+      "meta.helm.sh/release-namespace" = "argocd"
+    }
+    labels = {
+      "app.kubernetes.io/component"   = "server"
+      "app.kubernetes.io/instance"    = "argocd"
+      "app.kubernetes.io/managed-by"  = "Helm"
+      "app.kubernetes.io/name"        = "argocd-secret"
+      "app.kubernetes.io/part-of"     = "argocd"
+      "app.kubernetes.io/version"     = "v3.1.7"
+      "helm.sh/chart"                = "argo-cd-8.5.6"
+    }
+  }
+
+  # Merge webhook secret with existing ArgoCD secrets
+  data = merge({
+    "webhook.github.secret" = var.github_webhook_secret
+  }, {
+    # Preserve any existing secrets that might be managed by Helm
+    # These will be ignored in terraform state due to lifecycle rules
+  })
+
+  lifecycle {
+    ignore_changes = [
+      data["admin.password"],
+      data["admin.passwordMtime"],
+      data["server.secretkey"],
+    ]
+  }
+}
+
+# ArgoCD ConfigMap for webhook configuration - Merge with existing Helm-managed ConfigMap
+resource "kubernetes_config_map" "argocd_cm" {
+  count = var.enable_webhooks ? 1 : 0
+
+  metadata {
+    name      = "argocd-cm"
+    namespace = kubernetes_namespace.argocd.metadata[0].name
+    annotations = {
+      "meta.helm.sh/release-name"      = "argocd"
+      "meta.helm.sh/release-namespace" = "argocd"
+    }
+    labels = {
+      "app.kubernetes.io/component"   = "server"
+      "app.kubernetes.io/instance"    = "argocd"
+      "app.kubernetes.io/managed-by"  = "Helm"
+      "app.kubernetes.io/name"        = "argocd-cm"
+      "app.kubernetes.io/part-of"     = "argocd"
+      "app.kubernetes.io/version"     = "v3.1.7"
+      "helm.sh/chart"                = "argo-cd-8.5.6"
+    }
+  }
+
+  # Add webhook configuration to the existing ArgoCD ConfigMap
+  data = merge({
+    "webhook.maxPayloadSizeMB" = var.webhook_max_payload_size_mb
+  }, {
+    # These will be managed by lifecycle ignore_changes
+  })
+
+  lifecycle {
+    ignore_changes = [
+      # Ignore all other ConfigMap data that's managed by Helm
+      data["admin.enabled"],
+      data["application.instanceLabelKey"],
+      data["application.sync.impersonation.enabled"],
+      data["exec.enabled"],
+      data["resource.customizations.ignoreResourceUpdates.ConfigMap"],
+      data["resource.customizations.ignoreResourceUpdates.Endpoints"],
+      data["resource.customizations.ignoreResourceUpdates.all"],
+      data["resource.customizations.ignoreResourceUpdates.apps_ReplicaSet"],
+      data["resource.customizations.ignoreResourceUpdates.argoproj.io_Application"],
+      data["resource.customizations.ignoreResourceUpdates.argoproj.io_Rollout"],
+      data["resource.customizations.ignoreResourceUpdates.autoscaling_HorizontalPodAutoscaler"],
+      data["resource.customizations.ignoreResourceUpdates.discovery.k8s.io_EndpointSlice"],
+      data["resource.exclusions"],
+      data["server.rbac.log.enforce.enable"],
+      data["statusbadge.enabled"],
+      data["timeout.hard.reconciliation"],
+      data["timeout.reconciliation"],
+      data["url"],
+    ]
   }
 }
 
@@ -72,7 +193,7 @@ locals {
 # ArgoCD ApplicationSet for automatic Kustomize application discovery and deployment
 resource "kubernetes_manifest" "app_discovery" {
   count      = var.create_applicationset ? 1 : 0
-  depends_on = [time_sleep.wait_for_argocd, kubernetes_secret.argocd_repo_ssh]
+  depends_on = [time_sleep.wait_for_argocd, kubernetes_secret.argocd_repo_creds]
 
   field_manager {
     name            = "terraform"
@@ -136,7 +257,7 @@ resource "kubernetes_manifest" "app_discovery" {
 # ArgoCD ApplicationSet for Helm applications stored as Application manifests
 resource "kubernetes_manifest" "helm_app_discovery" {
   count      = var.create_applicationset ? 1 : 0
-  depends_on = [time_sleep.wait_for_argocd, kubernetes_secret.argocd_repo_ssh]
+  depends_on = [time_sleep.wait_for_argocd, kubernetes_secret.argocd_repo_creds]
 
   field_manager {
     name            = "terraform"

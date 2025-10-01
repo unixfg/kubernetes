@@ -1,0 +1,14 @@
+# Prod Environment Configuration for K3s
+environment = "prod"
+
+# GPG Configuration for SOPS
+gpg_secret_name      = "sops-gpg-keys"
+gpg_secret_namespace = "default"
+gpg_fingerprint      = "ABCD1234EFGH5678IJKL9012MNOP3456QRST7890"
+
+# ArgoCD Configuration
+git_repo_url                = "https://github.com/unixfg/gitops.git"
+use_ssh_for_git             = true
+argocd_repo_ssh_secret_name = "argocd-repo-ssh"
+enable_applicationsets      = false
+ingress_enabled             = false
