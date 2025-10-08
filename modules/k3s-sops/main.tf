@@ -23,12 +23,18 @@ data "kubernetes_secret" "gpg_key" {
 # Extract and validate GPG key data
 locals {
   # Use provided keys if available, otherwise read from cluster secret
-  gpg_private_key = var.gpg_private_key_content != "" ? var.gpg_private_key_content : (
+  # NOTE: Keys provided via variables are base64-encoded armor, need to decode first
+  gpg_private_key_raw = var.gpg_private_key_content != "" ? var.gpg_private_key_content : (
     length(data.kubernetes_secret.gpg_key) > 0 ? lookup(data.kubernetes_secret.gpg_key[0].data, var.gpg_private_key_field, "") : ""
   )
-  gpg_public_key = var.gpg_public_key_content != "" ? var.gpg_public_key_content : (
+  gpg_public_key_raw = var.gpg_public_key_content != "" ? var.gpg_public_key_content : (
     length(data.kubernetes_secret.gpg_key) > 0 ? lookup(data.kubernetes_secret.gpg_key[0].data, var.gpg_public_key_field, "") : ""
   )
+
+  # Decode the base64-encoded armor to get actual GPG armored keys
+  # The terraform-with-gpg.sh script exports keys as base64(armor), we need just armor
+  gpg_private_key = var.gpg_private_key_content != "" ? base64decode(local.gpg_private_key_raw) : local.gpg_private_key_raw
+  gpg_public_key  = var.gpg_public_key_content != "" ? base64decode(local.gpg_public_key_raw) : local.gpg_public_key_raw
 
   # Extract GPG key fingerprint from the public key for SOPS configuration
   gpg_fingerprint = var.gpg_fingerprint != "" ? var.gpg_fingerprint : null

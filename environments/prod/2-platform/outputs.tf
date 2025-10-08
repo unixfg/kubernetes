@@ -14,7 +14,7 @@ output "argocd_port_forward_command" {
 # SOPS Configuration Outputs
 output "sops_operator_status" {
   description = "SOPS Secrets Operator deployment status"
-  value       = "SOPS Secrets Operator deployed in namespace '${helm_release.sops_secrets_operator.namespace}'"
+  value       = "SOPS Secrets Operator managed by ArgoCD in namespace 'sops-secrets-operator'"
 }
 
 output "gpg_fingerprint" {
@@ -36,7 +36,7 @@ output "deployment_summary" {
 
     Platform Components:
       ✅ ArgoCD (GitOps Controller) - namespace: ${module.argocd.argocd_namespace}
-      ✅ SOPS Secrets Operator - namespace: ${helm_release.sops_secrets_operator.namespace}
+      ✅ SOPS Secrets Operator - namespace: sops-secrets-operator (managed by ArgoCD)
       ✅ K3s SOPS Module - GPG-based encryption configured
 
     Access ArgoCD:
