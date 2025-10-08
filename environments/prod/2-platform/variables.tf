@@ -111,3 +111,16 @@ variable "webhook_max_payload_size_mb" {
   type        = string
   default     = "10"
 }
+
+variable "gpg_private_key_content" {
+  description = "GPG private key content (base64 encoded ASCII-armored). Provide via TF_VAR_gpg_private_key_content env var for security."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "gpg_public_key_content" {
+  description = "GPG public key content (base64 encoded ASCII-armored). Can be provided in tfvars or via environment variable."
+  type        = string
+  default     = ""
+}

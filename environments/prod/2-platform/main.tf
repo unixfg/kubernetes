@@ -108,14 +108,12 @@ resource "helm_release" "sops_secrets_operator" {
         timeEncoding    = "iso8601"
       }
 
-      # Mount GPG keys using secretsAsFiles for manual GPG setup
-      secretsAsFiles = [
-        {
-          mountPath  = "/home/nonroot/.gnupg"
-          name       = "sops-gpg-keys"
-          secretName = "sops-gpg-keys"
-        }
-      ]
+      # GPG configuration - use Helm chart's built-in GPG support
+      # This creates a writable GNUPGHOME and imports keys at init time
+      gpg = {
+        enabled = true
+        secret1 = "sops-gpg-keys"
+      }
     })
   ]
 
@@ -127,22 +125,28 @@ resource "helm_release" "sops_secrets_operator" {
     ]
   }
 
-  depends_on = [kubernetes_namespace.sops_secrets_operator]
+  depends_on = [
+    kubernetes_namespace.sops_secrets_operator,
+    module.k3s_sops  # Ensure GPG secret exists before deploying operator
+  ]
 }
 
 # K3s SOPS Module - GPG-based secrets management
+# Note: Secret must be created BEFORE helm release to avoid mount failures
 module "k3s_sops" {
   source = "../../../modules/k3s-sops"
 
   gpg_secret_name         = var.gpg_secret_name
   gpg_secret_namespace    = var.gpg_secret_namespace
   gpg_fingerprint         = var.gpg_fingerprint
+  gpg_private_key_content = var.gpg_private_key_content
+  gpg_public_key_content  = var.gpg_public_key_content
   sops_operator_namespace = kubernetes_namespace.sops_secrets_operator.metadata[0].name
   environment             = local.environment_name
 
   create_sops_config = true
 
-  depends_on = [helm_release.sops_secrets_operator]
+  depends_on = [kubernetes_namespace.sops_secrets_operator]
 }
 
 # ArgoCD GitOps Controller
@@ -167,6 +171,18 @@ module "argocd" {
   argocd_values = merge({
     global = {
       domain = var.argocd_domain
+    }
+    repoServer = {
+      env = [
+        {
+          name  = "NO_PROXY"
+          value = "github.com,*.github.com,githubusercontent.com,*.githubusercontent.com"
+        },
+        {
+          name  = "no_proxy"
+          value = "github.com,*.github.com,githubusercontent.com,*.githubusercontent.com"
+        }
+      ]
     }
     server = {
       service = {

@@ -29,6 +29,19 @@ variable "gpg_fingerprint" {
   default     = ""
 }
 
+variable "gpg_private_key_content" {
+  description = "GPG private key content (base64 encoded ASCII-armored). If provided, will use this instead of reading from cluster secret."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "gpg_public_key_content" {
+  description = "GPG public key content (base64 encoded ASCII-armored). If provided, will use this instead of reading from cluster secret."
+  type        = string
+  default     = ""
+}
+
 variable "sops_operator_namespace" {
   description = "Namespace where SOPS secrets operator is deployed"
   type        = string

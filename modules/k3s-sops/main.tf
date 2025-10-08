@@ -10,8 +10,10 @@ terraform {
   }
 }
 
-# Fetch GPG key from Kubernetes secret
+# Fetch GPG key from Kubernetes secret only if keys are not provided directly
 data "kubernetes_secret" "gpg_key" {
+  count = var.gpg_private_key_content == "" ? 1 : 0
+
   metadata {
     name      = var.gpg_secret_name
     namespace = var.gpg_secret_namespace
@@ -20,8 +22,13 @@ data "kubernetes_secret" "gpg_key" {
 
 # Extract and validate GPG key data
 locals {
-  gpg_private_key = lookup(data.kubernetes_secret.gpg_key.data, var.gpg_private_key_field, "")
-  gpg_public_key  = lookup(data.kubernetes_secret.gpg_key.data, var.gpg_public_key_field, "")
+  # Use provided keys if available, otherwise read from cluster secret
+  gpg_private_key = var.gpg_private_key_content != "" ? var.gpg_private_key_content : (
+    length(data.kubernetes_secret.gpg_key) > 0 ? lookup(data.kubernetes_secret.gpg_key[0].data, var.gpg_private_key_field, "") : ""
+  )
+  gpg_public_key = var.gpg_public_key_content != "" ? var.gpg_public_key_content : (
+    length(data.kubernetes_secret.gpg_key) > 0 ? lookup(data.kubernetes_secret.gpg_key[0].data, var.gpg_public_key_field, "") : ""
+  )
 
   # Extract GPG key fingerprint from the public key for SOPS configuration
   gpg_fingerprint = var.gpg_fingerprint != "" ? var.gpg_fingerprint : null
@@ -72,8 +79,6 @@ resource "kubernetes_secret" "sops_gpg_keys" {
     "private.asc" = local.gpg_private_key
     "public.asc"  = local.gpg_public_key
   }
-
-  depends_on = [data.kubernetes_secret.gpg_key]
 }
 
 # Create SOPS configuration file as a ConfigMap

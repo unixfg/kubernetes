@@ -63,6 +63,24 @@ resource "helm_release" "argocd" {
             readOnly  = true
           }
         ]
+        dnsConfig = {
+          options = [
+            {
+              name  = "ndots"
+              value = "1"
+            }
+          ]
+        }
+      }
+      applicationSet = {
+        dnsConfig = {
+          options = [
+            {
+              name  = "ndots"
+              value = "1"
+            }
+          ]
+        }
       }
     }))
   ]
@@ -224,8 +242,8 @@ resource "kubernetes_manifest" "app_discovery" {
       ]
       template = {
         metadata = {
-          # Derive app name: apps/<app>/overlays/<env>
-          name = "{{ (index (splitList \"/\" .path.path) 1) }}-${var.environment}"
+          # Derive app name from directory: apps/<app>/overlays/<env>
+          name = "{{ (index (splitList \"/\" .path.path) 1) }}"
         }
         spec = {
           project = var.argocd_project
@@ -287,11 +305,11 @@ resource "kubernetes_manifest" "helm_app_discovery" {
       ]
       template = {
         metadata = {
-          name = "{{ (index (splitList \"/\" .path.path) 1) }}-${var.environment}"
+          name = "{{ (index (splitList \"/\" .path.path) 1) }}"
         }
         spec = {
           project = var.argocd_project
-          
+
           # Use sources array which handles both Helm repos and Git repos cleanly
           sources = [
             {
