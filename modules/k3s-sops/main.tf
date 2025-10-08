@@ -1,5 +1,5 @@
-# K3s SOPS Module - GPG-based secret encryption for Kubernetes
-# Provides GPG key integration for SOPS encryption using Kubernetes secrets
+# K3s SOPS Module - Age-based secret encryption for Kubernetes
+# Provides Age key integration for SOPS encryption using Kubernetes secrets
 
 terraform {
   required_providers {
@@ -10,40 +10,34 @@ terraform {
   }
 }
 
-# Fetch GPG key from Kubernetes secret only if keys are not provided directly
-data "kubernetes_secret" "gpg_key" {
-  count = var.gpg_private_key_content == "" ? 1 : 0
+# Fetch Age key from Kubernetes secret only if key is not provided directly
+data "kubernetes_secret" "age_key" {
+  count = var.age_key_content == "" ? 1 : 0
 
   metadata {
-    name      = var.gpg_secret_name
-    namespace = var.gpg_secret_namespace
+    name      = var.age_secret_name
+    namespace = var.age_secret_namespace
   }
 }
 
-# Extract and validate GPG key data
+# Extract and validate Age key data
 locals {
-  # Use provided keys if available, otherwise read from cluster secret
-  # NOTE: Keys provided via variables are base64-encoded armor, need to decode first
-  gpg_private_key_raw = var.gpg_private_key_content != "" ? var.gpg_private_key_content : (
-    length(data.kubernetes_secret.gpg_key) > 0 ? lookup(data.kubernetes_secret.gpg_key[0].data, var.gpg_private_key_field, "") : ""
-  )
-  gpg_public_key_raw = var.gpg_public_key_content != "" ? var.gpg_public_key_content : (
-    length(data.kubernetes_secret.gpg_key) > 0 ? lookup(data.kubernetes_secret.gpg_key[0].data, var.gpg_public_key_field, "") : ""
+  # Use provided key if available, otherwise read from cluster secret
+  age_key_raw = var.age_key_content != "" ? var.age_key_content : (
+    length(data.kubernetes_secret.age_key) > 0 ? lookup(data.kubernetes_secret.age_key[0].data, var.age_key_field, "") : ""
   )
 
-  # Decode the base64-encoded armor to get actual GPG armored keys
-  # The terraform-with-gpg.sh script exports keys as base64(armor), we need just armor
-  gpg_private_key = var.gpg_private_key_content != "" ? base64decode(local.gpg_private_key_raw) : local.gpg_private_key_raw
-  gpg_public_key  = var.gpg_public_key_content != "" ? base64decode(local.gpg_public_key_raw) : local.gpg_public_key_raw
+  # Age key is stored as-is (no base64 decoding needed)
+  age_key = local.age_key_raw
 
-  # Extract GPG key fingerprint from the public key for SOPS configuration
-  gpg_fingerprint = var.gpg_fingerprint != "" ? var.gpg_fingerprint : null
+  # Extract Age public key for SOPS configuration
+  age_public_key = var.age_public_key != "" ? var.age_public_key : null
 }
 
-# Create a ConfigMap with GPG configuration for SOPS operator consumption
-resource "kubernetes_config_map" "sops_gpg_config" {
+# Create a ConfigMap with Age configuration for SOPS operator consumption
+resource "kubernetes_config_map" "sops_age_config" {
   metadata {
-    name      = "sops-gpg-config"
+    name      = "sops-age-config"
     namespace = var.sops_operator_namespace
     labels = {
       "app.kubernetes.io/managed-by" = "terraform"
@@ -53,24 +47,24 @@ resource "kubernetes_config_map" "sops_gpg_config" {
   }
 
   data = {
-    # GPG configuration for SOPS
-    gpg_fingerprint    = local.gpg_fingerprint
-    gpg_secret_name    = var.gpg_secret_name
-    gpg_secret_namespace = var.gpg_secret_namespace
-    gpg_private_key_field = var.gpg_private_key_field
+    # Age configuration for SOPS
+    age_public_key        = local.age_public_key
+    age_secret_name       = var.age_secret_name
+    age_secret_namespace  = var.age_secret_namespace
+    age_key_field         = var.age_key_field
     # Add SOPS creation rules template
     sops_creation_rules = jsonencode([
       {
-        pgp = local.gpg_fingerprint
+        age = local.age_public_key
       }
     ])
   }
 }
 
-# Create a secret in the SOPS operator namespace containing the GPG keys
-resource "kubernetes_secret" "sops_gpg_keys" {
+# Create a secret in the SOPS operator namespace containing the Age key
+resource "kubernetes_secret" "sops_age" {
   metadata {
-    name      = "sops-gpg-keys"
+    name      = "sops-age"
     namespace = var.sops_operator_namespace
     labels = {
       "app.kubernetes.io/managed-by" = "terraform"
@@ -82,8 +76,7 @@ resource "kubernetes_secret" "sops_gpg_keys" {
   type = "Opaque"
 
   data = {
-    "private.asc" = local.gpg_private_key
-    "public.asc"  = local.gpg_public_key
+    "age.key" = local.age_key
   }
 }
 
@@ -105,7 +98,7 @@ resource "kubernetes_config_map" "sops_config" {
     ".sops.yaml" = yamlencode({
       creation_rules = [
         {
-          pgp = local.gpg_fingerprint
+          age = local.age_public_key
         }
       ]
     })

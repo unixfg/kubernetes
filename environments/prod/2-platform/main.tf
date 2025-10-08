@@ -57,16 +57,13 @@ resource "kubernetes_namespace" "sops_secrets_operator" {
 # - Self-healing and drift detection
 # - Proper GPG key mounting and import via custom values
 
-# K3s SOPS Module - GPG-based secrets management
+# K3s SOPS Module - Age-based secrets management
 # Note: Secret must be created BEFORE helm release to avoid mount failures
 module "k3s_sops" {
   source = "../../../modules/k3s-sops"
 
-  gpg_secret_name         = var.gpg_secret_name
-  gpg_secret_namespace    = var.gpg_secret_namespace
-  gpg_fingerprint         = var.gpg_fingerprint
-  gpg_private_key_content = var.gpg_private_key_content
-  gpg_public_key_content  = var.gpg_public_key_content
+  age_public_key          = var.age_public_key
+  age_key_content         = var.age_key_content
   sops_operator_namespace = kubernetes_namespace.sops_secrets_operator.metadata[0].name
   environment             = local.environment_name
 

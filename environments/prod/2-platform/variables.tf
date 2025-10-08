@@ -30,21 +30,9 @@ variable "enable_applicationsets" {
   default     = false
 }
 
-# K3s SOPS Configuration
-variable "gpg_secret_name" {
-  description = "Name of the Kubernetes secret containing GPG keys for SOPS"
-  type        = string
-  default     = "sops-gpg-keys"
-}
-
-variable "gpg_secret_namespace" {
-  description = "Namespace of the Kubernetes secret containing GPG keys"
-  type        = string
-  default     = "default"
-}
-
-variable "gpg_fingerprint" {
-  description = "GPG key fingerprint for SOPS configuration"
+# K3s SOPS Configuration - Age encryption
+variable "age_public_key" {
+  description = "Age public key for SOPS configuration"
   type        = string
 }
 
@@ -112,15 +100,9 @@ variable "webhook_max_payload_size_mb" {
   default     = "10"
 }
 
-variable "gpg_private_key_content" {
-  description = "GPG private key content (base64 encoded ASCII-armored). Provide via TF_VAR_gpg_private_key_content env var for security."
+variable "age_key_content" {
+  description = "Age private key content. Provide via TF_VAR_age_key_content env var for security."
   type        = string
   default     = ""
   sensitive   = true
-}
-
-variable "gpg_public_key_content" {
-  description = "GPG public key content (base64 encoded ASCII-armored). Can be provided in tfvars or via environment variable."
-  type        = string
-  default     = ""
 }

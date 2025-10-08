@@ -17,9 +17,9 @@ output "sops_operator_status" {
   value       = "SOPS Secrets Operator managed by ArgoCD in namespace 'sops-secrets-operator'"
 }
 
-output "gpg_fingerprint" {
-  description = "GPG fingerprint used for SOPS encryption"
-  value       = module.k3s_sops.gpg_fingerprint
+output "age_public_key" {
+  description = "Age public key used for SOPS encryption"
+  value       = module.k3s_sops.age_public_key
 }
 
 output "sops_configuration" {
@@ -50,11 +50,11 @@ output "deployment_summary" {
       → ${replace(var.git_repo_url, ".git", "")}/settings/keys
 
     SOPS Configuration:
-      GPG Fingerprint: ${module.k3s_sops.gpg_fingerprint}
-      Encrypt secrets: sops -e --pgp ${module.k3s_sops.gpg_fingerprint} secret.yaml > secret.enc.yaml
+      Age Public Key: ${module.k3s_sops.age_public_key}
+      Encrypt secrets: sops -e --age ${module.k3s_sops.age_public_key} secret.yaml > secret.enc.yaml
 
     Next Steps:
-      • Create GPG keys if not already present in secret: ${var.gpg_secret_name}
+      • Age key is automatically created from Terraform variables
       • Encrypt secrets using the provided GPG fingerprint
       • Deploy applications via ArgoCD
   EOT
@@ -68,7 +68,7 @@ output "commands" {
     kubectl get applications -n argocd    # Check deployed apps
     kubectl get pods --all-namespaces     # Check all pods
     kubectl get svc --all-namespaces      # Check all services
-    kubectl get secret ${var.gpg_secret_name} -n ${var.gpg_secret_namespace}  # Check GPG secret
+    kubectl get secret sops-age -n sops-secrets-operator  # Check Age secret
     terraform output -raw argocd_repo_public_key  # Get SSH key
   EOT
 }
@@ -81,8 +81,8 @@ output "useful_commands" {
     get_argocd_password  = "kubectl -n argocd get secret argocd-initial-admin-secret -o go-template='{{printf \"%s\\n\" (.data.password|base64decode)}}'"
     check_applications   = "kubectl get applications -n ${module.argocd.argocd_namespace}"
     view_ssh_key         = "terraform output -raw argocd_repo_public_key"
-    check_gpg_secret     = "kubectl get secret ${var.gpg_secret_name} -n ${var.gpg_secret_namespace}"
-    sops_encrypt_command = "sops -e --pgp ${module.k3s_sops.gpg_fingerprint} secret.yaml > secret.enc.yaml"
+    check_age_secret     = "kubectl get secret sops-age -n sops-secrets-operator"
+    sops_encrypt_command = "sops -e --age ${module.k3s_sops.age_public_key} secret.yaml > secret.enc.yaml"
     argocd_web_url       = "http://localhost:8080 (after port-forward)"
   }
 }

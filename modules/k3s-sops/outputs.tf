@@ -1,26 +1,26 @@
 # K3s SOPS Module Outputs
-# GPG key outputs for SOPS configuration
+# Age key outputs for SOPS configuration
 
-# GPG configuration outputs
-output "gpg_fingerprint" {
-  description = "GPG key fingerprint for SOPS configuration"
-  value       = local.gpg_fingerprint
+# Age configuration outputs
+output "age_public_key" {
+  description = "Age public key for SOPS configuration"
+  value       = local.age_public_key
 }
 
-output "gpg_secret_name" {
-  description = "Name of the source GPG secret"
-  value       = var.gpg_secret_name
+output "age_secret_name" {
+  description = "Name of the source Age secret"
+  value       = var.age_secret_name
 }
 
-output "gpg_secret_namespace" {
-  description = "Namespace of the source GPG secret"
-  value       = var.gpg_secret_namespace
+output "age_secret_namespace" {
+  description = "Namespace of the source Age secret"
+  value       = var.age_secret_namespace
 }
 
 # SOPS operator configuration outputs
-output "sops_gpg_secret_name" {
-  description = "Name of the GPG secret created for SOPS operator"
-  value       = kubernetes_secret.sops_gpg_keys.metadata[0].name
+output "sops_age_secret_name" {
+  description = "Name of the Age secret created for SOPS operator"
+  value       = kubernetes_secret.sops_age.metadata[0].name
 }
 
 output "sops_operator_namespace" {
@@ -38,7 +38,7 @@ output "sops_creation_rules" {
   description = "SOPS creation rules in JSON format"
   value = jsonencode([
     {
-      pgp = local.gpg_fingerprint
+      age = local.age_public_key
     }
   ])
 }
@@ -47,27 +47,27 @@ output "sops_creation_rules" {
 output "sops_configuration" {
   description = "Complete SOPS configuration for GitOps consumption"
   value = {
-    gpg_fingerprint = local.gpg_fingerprint
-    secret_name     = kubernetes_secret.sops_gpg_keys.metadata[0].name
-    namespace       = var.sops_operator_namespace
-    config_map      = kubernetes_config_map.sops_gpg_config.metadata[0].name
+    age_public_key = local.age_public_key
+    secret_name    = kubernetes_secret.sops_age.metadata[0].name
+    namespace      = var.sops_operator_namespace
+    config_map     = kubernetes_config_map.sops_age_config.metadata[0].name
     creation_rules = [
       {
-        pgp = local.gpg_fingerprint
+        age = local.age_public_key
       }
     ]
     instructions = <<-EOT
-      To use SOPS with this GPG configuration:
+      To use SOPS with this Age configuration:
 
       1. Encrypt secrets using:
-         sops --encrypt --pgp ${local.gpg_fingerprint} secret.yaml > secret.enc.yaml
+         sops --encrypt --age ${local.age_public_key} secret.yaml > secret.enc.yaml
 
       2. Or create a .sops.yaml file with:
          creation_rules:
-           - pgp: ${local.gpg_fingerprint}
+           - age: ${local.age_public_key}
 
       3. The SOPS operator will automatically decrypt secrets in the cluster
-         using the GPG keys stored in secret: ${kubernetes_secret.sops_gpg_keys.metadata[0].name}
+         using the Age key stored in secret: ${kubernetes_secret.sops_age.metadata[0].name}
     EOT
   }
 }
