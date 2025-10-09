@@ -12,6 +12,10 @@ terraform {
       source  = "hashicorp/helm"
       version = "~>2.0"
     }
+    kubectl = {
+      source  = "gavinbunney/kubectl"
+      version = "~> 1.14"
+    }
   }
 }
 
@@ -30,6 +34,10 @@ provider "helm" {
   kubernetes {
     config_path = "~/.kube/config"
   }
+}
+
+provider "kubectl" {
+  config_path = "~/.kube/config"
 }
 
 # Namespace for sops-secrets-operator
@@ -68,6 +76,22 @@ module "k3s_sops" {
   environment             = local.environment_name
 
   create_sops_config = true
+
+  depends_on = [kubernetes_namespace.sops_secrets_operator]
+}
+
+# Kyverno CRDs Bootstrap
+# Install large CRDs that cause ArgoCD annotation size issues
+# After bootstrap, ArgoCD manages updates via kyverno-crds application
+module "kyverno_crds_bootstrap" {
+  source = "../../../modules/kyverno-crds"
+
+  kyverno_version = "v1.15.2"
+
+  # Hand off management to ArgoCD after initial bootstrap
+  lifecycle {
+    ignore_changes = all
+  }
 
   depends_on = [kubernetes_namespace.sops_secrets_operator]
 }
@@ -151,4 +175,8 @@ module "argocd" {
       }
     }
   } : {})
+
+  # Ensure Kyverno CRDs are installed before ArgoCD starts
+  # This prevents ArgoCD from encountering missing CRDs during initial sync
+  depends_on = [module.kyverno_crds_bootstrap]
 }
