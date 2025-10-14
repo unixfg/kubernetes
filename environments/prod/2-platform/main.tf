@@ -25,19 +25,19 @@ locals {
 }
 
 # Configure providers for k3s cluster
-# Note: Configure kubectl context or use kube config file before running terraform
+# Note: Explicitly using K3s kubeconfig path
 provider "kubernetes" {
-  config_path = "~/.kube/config"
+  config_path = "/home/ryan/.kube/k3s"
 }
 
 provider "helm" {
   kubernetes {
-    config_path = "~/.kube/config"
+    config_path = "/home/ryan/.kube/k3s"
   }
 }
 
 provider "kubectl" {
-  config_path = "~/.kube/config"
+  config_path = "/home/ryan/.kube/k3s"
 }
 
 # Namespace for sops-secrets-operator
@@ -88,11 +88,7 @@ module "kyverno_crds_bootstrap" {
 
   kyverno_version = "v1.15.2"
 
-  # Hand off management to ArgoCD after initial bootstrap
-  lifecycle {
-    ignore_changes = all
-  }
-
+  # Note: ArgoCD manages updates after initial bootstrap via kyverno-crds application
   depends_on = [kubernetes_namespace.sops_secrets_operator]
 }
 
